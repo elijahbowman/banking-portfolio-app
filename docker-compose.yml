@@ -1,0 +1,115 @@
+version: '3.8'
+
+services:
+  h2-database:
+    image: oscarfonts/h2:2.2.224
+    # platform: linux/amd64
+    container_name: banking-h2
+    ports:
+      - "8082:8082"
+      - "8083:8083"
+    environment:
+      H2_OPTIONS: "-tcp -tcpAllowOthers -tcpPort 8082 -web -webAllowOthers -webPort 8083 -ifNotExists"
+      H2_SERVER_PORT: 8083
+    volumes:
+      - h2-data:/opt/h2-data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8083"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - banking-network
+    restart: unless-stopped
+
+  zookeeper:
+    image: bitnami/zookeeper:3.9
+    platform: linux/arm64/v8
+    container_name: banking-zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ALLOW_ANONYMOUS_LOGIN: "yes"
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - banking-network
+    restart: unless-stopped
+
+  kafka:
+    image: bitnami/kafka:3.7
+    platform: linux/arm64/v8
+    container_name: banking-kafka
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_CFG_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_CFG_LISTENERS: PLAINTEXT://:9092
+      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CFG_BROKER_ID: 1
+      KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_CFG_NUM_PARTITIONS: 1
+      KAFKA_CFG_DEFAULT_REPLICATION_FACTOR: 1
+      KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      ALLOW_PLAINTEXT_LISTENER: "yes"
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "kafka-topics.sh", "--list", "--bootstrap-server", "localhost:9092"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - banking-network
+    restart: unless-stopped
+
+  banking-service:
+    build:
+      context: ./backend/banking-service
+      dockerfile: Dockerfile
+    container_name: banking-service
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:h2:tcp://h2-database:8082/./bankingdb;DB_CLOSE_DELAY=-1
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      # LOGGING_FILE_NAME: /app/logs/banking-service.log
+      SPRING_PROFILES_ACTIVE: docker
+      # JAVA_OPTS: "-Xms256m -Xmx512m -XX:+UseG1GC"
+      JAVA_OPTS: "-Xms256m -Xmx512m -Dspring.profiles.active=docker"
+    depends_on:
+      h2-database:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      # test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    networks:
+      - banking-network
+    restart: unless-stopped
+    volumes:
+      - banking-logs:/app/logs
+
+networks:
+  banking-network:
+    driver: bridge
+    name: banking-network
+
+volumes:
+  h2-data:
+    driver: local
+  banking-logs:
+    driver: local

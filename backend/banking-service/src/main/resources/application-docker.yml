@@ -1,0 +1,27 @@
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:h2:tcp://h2-database:8082/./bankingdb;DB_CLOSE_DELAY=-1}
+    hikari:
+      maximum-pool-size: 10
+
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:kafka:9092}
+    producer:
+      properties:
+        acks: all
+        enable.idempotence: true
+        retries: 5
+
+  jpa:
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+
+logging:
+  level:
+    com.portfolio.banking: ERROR
+    org.springframework.kafka: ERROR
+    org.apache.kafka: ERROR
+  file:
+    name: /app/logs/banking-service.log
