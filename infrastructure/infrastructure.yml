@@ -1,0 +1,202 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Banking Portfolio Infrastructure for banking-service
+Parameters:
+  ApplicationName:
+    Type: String
+    Default: banking-portfolio
+  EnvironmentName:
+    Type: String
+    Default: banking-env
+  RDSDBName:
+    Type: String
+    Default: bankingdb
+  RDSUsername:
+    Type: String
+    Default: admin
+  RDSPassword:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /banking/rds/password
+  InstanceType:
+    Type: String
+    Default: t3.micro
+  SolutionStack:
+    Type: String
+    Default: 64bit Amazon Linux 2023 v4.7.1 running Docker
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+  SubnetId:
+    Type: AWS::EC2::Subnet::Id
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+
+Resources:
+  # Elastic Beanstalk Application
+  BankingApplication:
+    Type: AWS::ElasticBeanstalk::Application
+    Properties:
+      ApplicationName: !Ref ApplicationName
+  
+  EBInstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AWSElasticBeanstalkWebTier
+      Policies:
+        - PolicyName: ParameterStoreAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                  - ssm:GetParameters
+                  - ssm:DescribeParameters
+                Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/banking/rds/password'
+
+  EBInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref EBInstanceRole
+
+  # Elastic Beanstalk Environment
+  BankingEnvironment:
+    Type: AWS::ElasticBeanstalk::Environment
+    Properties:
+      ApplicationName: !Ref BankingApplication
+      EnvironmentName: !Ref EnvironmentName
+      SolutionStackName: !Ref SolutionStack
+      OptionSettings:
+        - Namespace: aws:autoscaling:asg
+          OptionName: MinSize
+          Value: 1
+        - Namespace: aws:autoscaling:asg
+          OptionName: MaxSize
+          Value: 1
+        - Namespace: aws:ec2:instances
+          OptionName: InstanceTypes
+          Value: !Ref InstanceType
+        - Namespace: aws:ec2:vpc
+          OptionName: VPCId
+          Value: !Ref VpcId
+        - Namespace: aws:ec2:vpc
+          OptionName: Subnets
+          Value: !Ref SubnetId
+        - Namespace: aws:elasticbeanstalk:environment
+          OptionName: EnvironmentType
+          Value: SingleInstance
+        - Namespace: aws:autoscaling:launchconfiguration
+          OptionName: IamInstanceProfile
+          Value: !Ref EBInstanceProfile
+
+  # RDS Security Group
+  RDSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for banking-postgres RDS
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          SourceSecurityGroupId: !Ref EBSecurityGroup
+
+  # EB Security Group
+  EBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for banking-env EB
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: -1 # Allow all outbound traffic
+          FromPort: 0
+          ToPort: 65535
+          CidrIp: 0.0.0.0/0
+
+  # Kafka/Zookeeper Security Group
+  KafkaSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for Kafka and Zookeeper
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 9092
+          ToPort: 9092
+          SourceSecurityGroupId: !Ref EBSecurityGroup
+        - IpProtocol: tcp
+          FromPort: 2181
+          ToPort: 2181
+          SourceSecurityGroupId: !Ref EBSecurityGroup
+
+  # RDS Instance
+  BankingPostgres:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceIdentifier: banking-postgres
+      DBName: !Ref RDSDBName
+      AllocatedStorage: 20
+      DBInstanceClass: db.t3.micro
+      Engine: postgres
+      EngineVersion: 13.7
+      MasterUsername: !Ref RDSUsername
+      MasterUserPassword: !Ref RDSPassword
+      VPCSecurityGroups:
+        - !Ref RDSSecurityGroup
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      PubliclyAccessible: false
+
+  # DB Subnet Group
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnet group for banking-postgres
+      SubnetIds:
+        - !Ref SubnetId
+
+  # EC2 Instance for Kafka/Zookeeper
+  KafkaZookeeperInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref InstanceType
+      ImageId: ami-0c55b159cbfafe1f0 # Amazon Linux 2
+      KeyName: !Ref KeyName
+      SubnetId: !Ref SubnetId
+      SecurityGroupIds:
+        - !Ref KafkaSecurityGroup
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          yum install -y docker
+          service docker start
+          docker run -d --name zookeeper -p 2181:2181 bitnamilegacy/zookeeper:3.9
+          docker run -d --name kafka -p 9092:9092 \
+            -e KAFKA_ZOOKEEPER_CONNECT=${!GetAtt KafkaZookeeperInstance.PrivateIp}:2181 \
+            -e KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://${!GetAtt KafkaZookeeperInstance.PrivateIp}:9092 \
+            bitnamilegacy/kafka:3.7
+      Tags:
+        - Key: Name
+          Value: kafka-zookeeper
+
+Outputs:
+  EBEnvironmentUrl:
+    Description: URL for banking-env
+    Value: !GetAtt BankingEnvironment.EndpointURL
+  RDSEndpoint:
+    Description: Endpoint for banking-postgres
+    Value: !GetAtt BankingPostgres.Endpoint.Address
+  KafkaBroker:
+    Description: Kafka broker address
+    Value: !Sub ${KafkaZookeeperInstance.PrivateIp}:9092

@@ -39,7 +39,10 @@ management:
 
 logging:
   level:
-    com.portfolio.banking: DEBUG
+    com.portfolio.banking: INFO
     org.springframework.web: INFO
     org.hibernate.SQL: DEBUG
-    org.springframework.kafka: INFO
+    org.springframework.kafka: ERROR
+    org.apache.kafka: ERROR
+    org.springframework.jdbc.datasource: DEBUG
+#    io.awspring.cloud.paramstore: DEBUG

@@ -1,20 +1,19 @@
 version: '3.8'
 
 services:
-  h2-database:
-    image: oscarfonts/h2:2.2.224
-    # platform: linux/amd64
-    container_name: banking-h2
+  postgres:
+    image: postgres:15-alpine
+    container_name: banking-postgres
     ports:
-      - "8082:8082"
-      - "8083:8083"
+      - "5432:5432"
     environment:
-      H2_OPTIONS: "-tcp -tcpAllowOthers -tcpPort 8082 -web -webAllowOthers -webPort 8083 -ifNotExists"
-      H2_SERVER_PORT: 8083
+      POSTGRES_USER: testuser
+      POSTGRES_PASSWORD: testpass
+      POSTGRES_DB: testdb
     volumes:
-      - h2-data:/opt/h2-data
+      - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8083"]
+      test: ["CMD", "pg_isready"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -22,9 +21,8 @@ services:
     networks:
       - banking-network
     restart: unless-stopped
-
   zookeeper:
-    image: bitnami/zookeeper:3.9
+    image: bitnamilegacy/zookeeper:3.9
     platform: linux/arm64/v8
     container_name: banking-zookeeper
     ports:
@@ -42,7 +40,7 @@ services:
     restart: unless-stopped
 
   kafka:
-    image: bitnami/kafka:3.7
+    image: bitnamilegacy/kafka:3.7
     platform: linux/arm64/v8
     container_name: banking-kafka
     ports:
@@ -51,6 +49,7 @@ services:
       KAFKA_CFG_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
       KAFKA_CFG_LISTENERS: PLAINTEXT://:9092
+      # KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
       KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_CFG_BROKER_ID: 1
       KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "true"
@@ -79,20 +78,20 @@ services:
     ports:
       - "8080:8080"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:h2:tcp://h2-database:8082/./bankingdb;DB_CLOSE_DELAY=-1
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/testdb
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
+      SPRING_DATASOURCE_USERNAME: testuser
+      SPRING_DATASOURCE_PASSWORD: testpass
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      # LOGGING_FILE_NAME: /app/logs/banking-service.log
       SPRING_PROFILES_ACTIVE: docker
-      # JAVA_OPTS: "-Xms256m -Xmx512m -XX:+UseG1GC"
       JAVA_OPTS: "-Xms256m -Xmx512m -Dspring.profiles.active=docker"
     depends_on:
-      h2-database:
+      postgres:
         condition: service_healthy
       kafka:
         condition: service_healthy
     healthcheck:
-      # test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -109,7 +108,7 @@ networks:
     name: banking-network
 
 volumes:
-  h2-data:
+  postgres-data:
     driver: local
   banking-logs:
     driver: local

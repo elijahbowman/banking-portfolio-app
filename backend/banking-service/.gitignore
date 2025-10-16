@@ -31,3 +31,9 @@ build/
 
 ### VS Code ###
 .vscode/
+
+/logs
+
+.ebextensions
+bootstrap.yml
+Dockerrun.aws.json

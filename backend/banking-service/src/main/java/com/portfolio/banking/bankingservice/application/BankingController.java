@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -27,27 +28,35 @@ public class BankingController {
         log.info("Received deposit request - Account: {}, Amount: {}", accountId, amount);
 
         try {
-            Map<String, Object> result = bankingService.processDeposit(accountId, amount);
-            log.info("Deposit processed successfully - Transaction ID: {}", result.get("transactionId"));
-
+            // Call service with validated parameters
+            Map<String, Object> result = bankingService.processDeposit(accountId.trim(), amount);
+            log.info("Deposit successful - Transaction ID: {}", result.get("transactionId"));
             return ResponseEntity.ok(result);
 
         } catch (IllegalArgumentException e) {
-            log.warn("Invalid deposit request - Account: {}, Error: {}", accountId, e.getMessage());
-            Map<String, Object> error = new HashMap<>();
-            error.put("error", e.getMessage());
-            error.put("status", "VALIDATION_ERROR");
-            error.put("timestamp", java.time.LocalDateTime.now());
-            return ResponseEntity.badRequest().body(error);
+            log.warn("Service validation failed - Account: {}, Error: {}", accountId, e.getMessage());
+            return createValidationError(e.getMessage());
 
         } catch (Exception e) {
-            log.error("Unexpected error processing deposit for account {}: {}", accountId, e.getMessage(), e);
-            Map<String, Object> error = new HashMap<>();
-            error.put("error", "Internal server error");
-            error.put("status", "INTERNAL_ERROR");
-            error.put("timestamp", java.time.LocalDateTime.now());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+            log.error("Unexpected error for account {}: {}", accountId, e.getMessage(), e);
+            return createServerError();
         }
+    }
+
+    private ResponseEntity<Map<String, Object>> createValidationError(String message) {
+        Map<String, Object> error = new HashMap<>();
+        error.put("error", message);
+        error.put("status", "VALIDATION_ERROR");
+        error.put("timestamp", LocalDateTime.now());
+        return ResponseEntity.badRequest().body(error);
+    }
+
+    private ResponseEntity<Map<String, Object>> createServerError() {
+        Map<String, Object> error = new HashMap<>();
+        error.put("error", "Internal server error");
+        error.put("status", "INTERNAL_ERROR");
+        error.put("timestamp", LocalDateTime.now());
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
     }
 
     @GetMapping("/health")
@@ -55,7 +64,7 @@ public class BankingController {
         Map<String, Object> health = bankingService.getSystemHealth();
         health.put("service", "BankingService");
         health.put("status", "HEALTHY");
-        health.put("timestamp", java.time.LocalDateTime.now());
+        health.put("version", "1.0.0");
         return ResponseEntity.ok(health);
     }
 
@@ -65,7 +74,14 @@ public class BankingController {
         info.put("serviceName", "BankingService");
         info.put("version", "1.0.0");
         info.put("description", "Banking microservice for portfolio demonstration");
-        info.put("endpoints", new String[]{"/api/v1/banking/deposits", "/api/v1/banking/health"});
+        info.put("kafkaEnabled", true);
+        info.put("database", "H2");
+        info.put("endpoints", new String[]{
+                "POST /api/v1/banking/deposits",
+                "GET /api/v1/banking/health",
+                "GET /api/v1/banking/info"
+        });
+        info.put("timestamp", LocalDateTime.now());
         return ResponseEntity.ok(info);
     }
 }
