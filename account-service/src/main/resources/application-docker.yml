@@ -1,0 +1,36 @@
+spring:
+  config:
+    import: "aws-parameterstore:/banking/rds/"
+  datasource:
+    url: jdbc:postgresql://${RDS_ENDPOINT}:5432/bankingdb
+    driver-class-name: org.postgresql.Driver
+    username: bank_admin
+    password: ${password}
+    hikari:
+      maximum-pool-size: 10
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  kafka:
+    bootstrap-servers: ${KAFKA_BROKER}
+    producer:
+      properties:
+        acks: all
+        enable.idempotence: true
+        retries: 5
+
+logging:
+  level:
+    io.awspring.cloud.paramstore.AwsParamStorePropertySource: DEBUG
+#    org.springframework.boot.context.config.ConfigDataEnvironment: TRACE
+    com.portfolio.banking: INFO
+    org.springframework.kafka: ERROR
+    org.apache.kafka: ERROR
+    org.springframework.jdbc.datasource: DEBUG
+#    io.awspring.cloud.paramstore: DEBUG
+
+  file:
+    name: /app/logs/account-service.log
