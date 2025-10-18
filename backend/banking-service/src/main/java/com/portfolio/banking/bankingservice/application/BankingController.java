@@ -84,4 +84,12 @@ public class BankingController {
         info.put("timestamp", LocalDateTime.now());
         return ResponseEntity.ok(info);
     }
+
+    @PostMapping("/transfers")
+    public ResponseEntity<Map<String, Object>> initiateTransfer(
+            @RequestParam String fromAccountId,
+            @RequestParam String toAccountId,
+            @RequestParam BigDecimal amount) {
+        return ResponseEntity.ok(bankingService.initiateTransfer(fromAccountId, toAccountId, amount));
+    }
 }
