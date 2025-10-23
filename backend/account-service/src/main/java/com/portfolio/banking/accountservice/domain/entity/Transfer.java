@@ -1,6 +1,8 @@
 package com.portfolio.banking.accountservice.domain.entity;
 
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -13,7 +15,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 public class Transfer {
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
+//    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "transfer_id", nullable = false)
     private String transferId;
 

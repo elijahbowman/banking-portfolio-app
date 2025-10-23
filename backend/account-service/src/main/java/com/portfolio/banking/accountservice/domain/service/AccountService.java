@@ -6,17 +6,19 @@ import com.portfolio.banking.accountservice.repository.AccountRepository;
 import com.portfolio.banking.accountservice.repository.TransferRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -50,7 +52,36 @@ public class AccountService {
         return buildTransferResponse(transfer);
     }
 
+    @Transactional
+    public Transfer processTransfer(String transferId, String fromAccountId, String toAccountId, BigDecimal amount) {
+
+        validateTransfer(fromAccountId, toAccountId, amount);
+
+        Account fromAccount = getAccount(fromAccountId);
+        Account toAccount = getAccount(toAccountId);
+
+        if (fromAccount.getBalance().compareTo(amount) < 0) {
+            publishRollbackEvent(transferId, fromAccountId, toAccountId, amount);
+            throw new IllegalStateException("Insufficient balance");
+        }
+
+        fromAccount.setBalance(fromAccount.getBalance().subtract(amount));
+        toAccount.setBalance(toAccount.getBalance().add(amount));
+
+        accountRepository.save(fromAccount);
+        accountRepository.save(toAccount);
+
+        Transfer transfer = transferRepository.findById(transferId).orElseThrow();
+        transfer.setStatus("COMPLETED");
+        transferRepository.save(transfer);
+
+        publishTransferEvent(transfer);
+
+        return transfer;
+    }
+
     @KafkaListener(topics = "transfer-events", groupId = "account-group")
+    @Transactional
     public void handleTransferEvent(Map<String, Object> event) {
         log.info("Handling transfer event: {}", event);
 
@@ -62,14 +93,25 @@ public class AccountService {
         String status = (String) event.get("status");
 
         if ("TRANSFER_INITIATED".equals(eventType)) {
-            Optional<Transfer> transferOpt = transferRepository.findById(transferId);
-            if (transferOpt.isPresent()) {
-                Transfer transfer = transferOpt.get();
-                transfer.setStatus(status);
-                transferRepository.save(transfer);
-                log.info("Updated transfer {} to status {}", transferId, status);
-            } else {
-                log.error("Transfer {} not found", transferId);
+            try {
+                // Create and save Transfer entity
+                Transfer transfer = new Transfer();
+                transfer.setTransferId(transferId);
+                transfer.setFromAccountId(fromAccountId);
+                transfer.setToAccountId(toAccountId);
+                transfer.setAmount(amount);
+                transfer.setStatus("PENDING");
+                try {
+                    transferRepository.save(transfer);
+                } catch (DataIntegrityViolationException e) {
+                    log.warn("Transfer {} already exists, proceeding with processing", transferId);
+                    // Continue if duplicate (idempotency)
+                }
+
+                // Process the transfer
+                processTransfer(transferId, fromAccountId, toAccountId, amount);
+            } catch (Exception e) {
+                log.error("Failed to process transfer {}: {}", transferId, e.getMessage());
                 publishRollbackEvent(transferId, fromAccountId, toAccountId, amount);
             }
         } else {
@@ -88,11 +130,25 @@ public class AccountService {
 
     private Account getAccount(String accountId) {
         return accountRepository.findById(accountId)
-                .orElseThrow(() -> new IllegalArgumentException("Account not found: " + accountId));
+                .orElseThrow(() -> {
+                    System.out.println("Database state after account not found: Accounts=" + accountRepository.findAll() + " Transfers=" + transferRepository.findAll());
+                    return new IllegalArgumentException("Account not found: " + accountId);
+                });
     }
 
     private Transfer createTransferRecord(String from, String to, BigDecimal amount) {
         Transfer transfer = new Transfer();
+        transfer.setTransferId(UUID.randomUUID().toString());
+        transfer.setFromAccountId(from);
+        transfer.setToAccountId(to);
+        transfer.setAmount(amount);
+        transfer.setStatus("COMPLETED");
+        return transferRepository.save(transfer);
+    }
+
+    private Transfer createTransferRecord(String transferId, String from, String to, BigDecimal amount) {
+        Transfer transfer = new Transfer();
+        transfer.setTransferId(transferId);
         transfer.setFromAccountId(from);
         transfer.setToAccountId(to);
         transfer.setAmount(amount);
@@ -135,6 +191,7 @@ public class AccountService {
     }
 
     @KafkaListener(topics = "rollback-events", groupId = "account-group")
+    @Transactional
     public void handleRollback(Map<String, Object> event) {
         log.info("Handling rollback event: {}", event);
 
@@ -160,9 +217,27 @@ public class AccountService {
                 log.info("Rolled back transfer {}: Restored {} to fromAccount, deducted from toAccount", transferId, amount);
             } else {
                 log.warn("Transfer {} is not in COMPLETED state, ignoring rollback", transferId);
+                System.out.println("Database state after ignoring rollback: Accounts=" + accountRepository.findAll() + " Transfers=" + transferRepository.findAll());
             }
         } else {
             log.error("Transfer {} not found for rollback", transferId);
+        }
+    }
+
+    private BigDecimal getAmountFromEvent(Map<String, Object> event) {
+        Object amountObj = event.get("amount");
+        if (amountObj instanceof BigDecimal) {
+            return (BigDecimal) amountObj;
+        } else if (amountObj instanceof String) {
+            try {
+                return new BigDecimal((String) amountObj);
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException("Invalid amount format in event: " + amountObj, e);
+            }
+        } else if (amountObj instanceof Double) {
+            return BigDecimal.valueOf((Double) amountObj);
+        } else {
+            throw new IllegalArgumentException("Amount must be a String, BigDecimal, or Double, got: " + amountObj);
         }
     }
 }
