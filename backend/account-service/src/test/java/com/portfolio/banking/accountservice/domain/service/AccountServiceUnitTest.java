@@ -1,24 +1,25 @@
 package com.portfolio.banking.accountservice.domain.service;
 
 import com.portfolio.banking.accountservice.domain.entity.Account;
-import com.portfolio.banking.accountservice.domain.entity.Transfer;
+import com.portfolio.banking.accountservice.domain.entity.Transaction;
 import com.portfolio.banking.accountservice.repository.AccountRepository;
-import com.portfolio.banking.accountservice.repository.TransferRepository;
+import com.portfolio.banking.accountservice.repository.TransactionRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.math.BigDecimal;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -31,120 +32,206 @@ class AccountServiceUnitTest {
     private AccountRepository accountRepository;
 
     @Mock
-    private TransferRepository transferRepository;
+    private TransactionRepository transactionRepository;
 
     @Mock
-    private KafkaTemplate<String, Object> kafkaTemplate;
+    private TransactionProcessor transactionProcessor;
+
+    @Mock
+    private TransactionRollbackHandler rollbackHandler;
 
     @InjectMocks
     private AccountService accountService;
 
-    private Account fromAccount;
-    private Account toAccount;
+    private Transaction transaction;
+    private Account account;
 
     @BeforeEach
     void setUp() {
-        fromAccount = new Account();
-        fromAccount.setAccountId("account1");
-        fromAccount.setBalance(new BigDecimal("1000.00"));
+        transaction = new Transaction();
+        transaction.setTransactionId("transaction1");
+        transaction.setAmount(new BigDecimal("200.00"));
+        transaction.setStatus("PENDING");
 
-        toAccount = new Account();
-        toAccount.setAccountId("account2");
-        toAccount.setBalance(new BigDecimal("500.00"));
+        account = new Account();
+        account.setAccountId("account1");
+        account.setAccountNumber("number1");
+        account.setCustomerName("name1");
+        account.setBalance(new BigDecimal("1000.00"));
     }
 
     @Test
-    void processTransfer_SuccessfulTransfer_ReturnsTransferResponse() {
-        // Arrange
-        String fromAccountId = "account1";
-        String toAccountId = "account2";
-        BigDecimal amount = new BigDecimal("200.00");
+    void handleTransferEvent_SuccessfulTransfer_CallsProcessor() {
+        Map<String, Object> event = new HashMap<>();
+        event.put("eventType", "TRANSFER_INITIATED");
+        event.put("transactionId", "transfer1");
+        event.put("fromAccountId", "account1");
+        event.put("toAccountId", "account2");
+        event.put("amount", "200.00");
+        event.put("transactionType", "TRANSFER");
+        event.put("status", "PENDING");
 
-        Transfer savedTransfer = new Transfer();
-        savedTransfer.setTransferId("transfer1");
-        savedTransfer.setFromAccountId(fromAccountId);
-        savedTransfer.setToAccountId(toAccountId);
-        savedTransfer.setAmount(amount);
-        savedTransfer.setStatus("COMPLETED");
+        transaction.setTransactionType("TRANSFER");
+        transaction.setFromAccountId("account1");
+        transaction.setToAccountId("account2");
+        when(transactionRepository.save(any(Transaction.class))).thenReturn(transaction);
+        when(transactionProcessor.processTransfer("transfer1", "account1", "account2", new BigDecimal("200.00")))
+                .thenReturn(Map.of("transactionId", "transfer1", "status", "COMPLETED", "transactionType", "TRANSFER"));
 
-        when(accountRepository.findById(fromAccountId)).thenReturn(Optional.of(fromAccount));
-        when(accountRepository.findById(toAccountId)).thenReturn(Optional.of(toAccount));
-        when(transferRepository.save(any(Transfer.class))).thenReturn(savedTransfer);
-        when(kafkaTemplate.send(anyString(), anyString(), any(Map.class))).thenReturn(null);
+        accountService.handleTransactionEvent(event);
 
-        // Act
-        Map<String, Object> response = accountService.processTransfer(fromAccountId, toAccountId, amount);
-
-        // Assert
-        assertNotNull(response);
-        assertEquals("transfer1", response.get("transferId"));
-        assertEquals(new BigDecimal("800.00"), fromAccount.getBalance());
-        assertEquals(new BigDecimal("700.00"), toAccount.getBalance());
-        verify(accountRepository, times(2)).save(any(Account.class));
-        verify(transferRepository, times(1)).save(any(Transfer.class));
-        verify(kafkaTemplate, times(1)).send(eq("transfer-events"), anyString(), any(Map.class));
+        verify(transactionRepository, times(1)).save(any(Transaction.class));
+        verify(transactionProcessor, times(1)).processTransfer("transfer1", "account1", "account2", new BigDecimal("200.00"));
+        verifyNoInteractions(rollbackHandler);
     }
 
     @Test
-    void processTransfer_InsufficientBalance_ThrowsIllegalStateException() {
-        // Arrange
-        String fromAccountId = "account1";
-        String toAccountId = "account2";
-        BigDecimal amount = new BigDecimal("2000.00"); // More than balance
+    void handleDepositEvent_SuccessfulDeposit_CallsProcessor() {
+        Map<String, Object> event = new HashMap<>();
+        event.put("eventType", "DEPOSIT_INITIATED");
+        event.put("transactionId", "deposit1");
+        event.put("accountId", "account1");
+        event.put("amount", "100.00");
+        event.put("transactionType", "DEPOSIT");
+        event.put("status", "PENDING");
 
-        when(accountRepository.findById(fromAccountId)).thenReturn(Optional.of(fromAccount));
-        when(accountRepository.findById(toAccountId)).thenReturn(Optional.of(toAccount));
+        transaction.setTransactionType("DEPOSIT");
+        transaction.setAccountId("account1");
+        when(transactionRepository.save(any(Transaction.class))).thenReturn(transaction);
+        when(transactionProcessor.processDeposit("deposit1", "account1", new BigDecimal("100.00")))
+                .thenReturn(Map.of("transactionId", "deposit1", "status", "COMPLETED", "transactionType", "DEPOSIT"));
 
-        // Act & Assert
-        IllegalStateException exception = assertThrows(IllegalStateException.class, () ->
-                accountService.processTransfer(fromAccountId, toAccountId, amount));
-        assertEquals("Insufficient balance", exception.getMessage());
-        verify(accountRepository, never()).save(any(Account.class));
-        verify(transferRepository, never()).save(any(Transfer.class));
-        verify(kafkaTemplate, never()).send(anyString(), anyString(), any(Map.class));
+        accountService.handleTransactionEvent(event);
+
+        verify(transactionRepository, times(1)).save(any(Transaction.class));
+        verify(transactionProcessor, times(1)).processDeposit("deposit1", "account1", new BigDecimal("100.00"));
+        verifyNoInteractions(rollbackHandler);
     }
 
     @Test
-    void processTransfer_SameAccount_ThrowsIllegalArgumentException() {
-        // Arrange
-        String accountId = "account1";
-        BigDecimal amount = new BigDecimal("200.00");
+    void handleWithdrawalEvent_SuccessfulWithdrawal_CallsProcessor() {
+        Map<String, Object> event = new HashMap<>();
+        event.put("eventType", "WITHDRAWAL_INITIATED");
+        event.put("transactionId", "withdrawal1");
+        event.put("accountId", "account1");
+        event.put("amount", "100.00");
+        event.put("transactionType", "WITHDRAWAL");
+        event.put("status", "PENDING");
 
-        // Act & Assert
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
-                accountService.processTransfer(accountId, accountId, amount));
-        assertEquals("Invalid accounts", exception.getMessage());
+        transaction.setTransactionType("WITHDRAWAL");
+        transaction.setAccountId("account1");
+        when(transactionRepository.save(any(Transaction.class))).thenReturn(transaction);
+        when(transactionProcessor.processWithdrawal("withdrawal1", "account1", new BigDecimal("100.00")))
+                .thenReturn(Map.of("transactionId", "withdrawal1", "status", "COMPLETED", "transactionType", "WITHDRAWAL"));
+
+        accountService.handleTransactionEvent(event);
+
+        verify(transactionRepository, times(1)).save(any(Transaction.class));
+        verify(transactionProcessor, times(1)).processWithdrawal("withdrawal1", "account1", new BigDecimal("100.00"));
+        verifyNoInteractions(rollbackHandler);
+    }
+
+    @Test
+    void handleTransferEvent_InsufficientBalance_LogsError() {
+        Map<String, Object> event = new HashMap<>();
+        event.put("eventType", "TRANSFER_INITIATED");
+        event.put("transactionId", "transfer1");
+        event.put("fromAccountId", "account1");
+        event.put("toAccountId", "account2");
+        event.put("amount", "2000.00");
+        event.put("transactionType", "TRANSFER");
+        event.put("status", "PENDING");
+
+        transaction.setTransactionType("TRANSFER");
+        transaction.setFromAccountId("account1");
+        transaction.setToAccountId("account2");
+        when(transactionRepository.save(any(Transaction.class))).thenReturn(transaction);
+        when(transactionProcessor.processTransfer("transfer1", "account1", "account2", new BigDecimal("2000.00")))
+                .thenThrow(new IllegalStateException("Insufficient balance"));
+
+        accountService.handleTransactionEvent(event);
+
+        verify(transactionRepository, times(1)).save(any(Transaction.class));
+        verify(transactionProcessor, times(1)).processTransfer("transfer1", "account1", "account2", new BigDecimal("2000.00"));
+        verifyNoInteractions(rollbackHandler);
+    }
+
+    @Test
+    void handleWithdrawalEvent_InsufficientBalance_LogsError() {
+        Map<String, Object> event = new HashMap<>();
+        event.put("eventType", "WITHDRAWAL_INITIATED");
+        event.put("transactionId", "withdrawal1");
+        event.put("accountId", "account1");
+        event.put("amount", "2000.00");
+        event.put("transactionType", "WITHDRAWAL");
+        event.put("status", "PENDING");
+
+        transaction.setTransactionType("WITHDRAWAL");
+        transaction.setAccountId("account1");
+        when(transactionRepository.save(any(Transaction.class))).thenReturn(transaction);
+        when(transactionProcessor.processWithdrawal("withdrawal1", "account1", new BigDecimal("2000.00")))
+                .thenThrow(new IllegalStateException("Insufficient balance"));
+
+        accountService.handleTransactionEvent(event);
+
+        verify(transactionRepository, times(1)).save(any(Transaction.class));
+        verify(transactionProcessor, times(1)).processWithdrawal("withdrawal1", "account1", new BigDecimal("2000.00"));
+        verifyNoInteractions(rollbackHandler);
+    }
+
+    @Test
+    void handleRollbackEvent_CallsRollbackHandler() {
+        Map<String, Object> event = new HashMap<>();
+        event.put("eventType", "ROLLBACK");
+        event.put("transactionId", "transaction1");
+        event.put("transactionType", "TRANSFER");
+
+        accountService.handleRollbackEvent(event);
+
+        verify(rollbackHandler, times(1)).handleRollback(event);
+        verifyNoInteractions(transactionRepository, transactionProcessor);
+    }
+
+    @Test
+    void handleUnknownEventType_LogsWarning() {
+        Map<String, Object> event = new HashMap<>();
+        event.put("eventType", "UNKNOWN_EVENT");
+        event.put("transactionId", "transaction1");
+
+        accountService.handleTransactionEvent(event);
+
+        verifyNoInteractions(transactionRepository, transactionProcessor, rollbackHandler);
+    }
+
+    @Test
+    void getBalance_ValidAccount_ReturnsBalance() {
+        when(accountRepository.findById("account1")).thenReturn(Optional.of(account));
+
+        BigDecimal balance = accountService.getBalance("account1");
+
+        assertEquals(new BigDecimal("1000.00"), balance);
+        verify(accountRepository, times(1)).findById("account1");
+    }
+
+    @Test
+    void getBalance_NonExistentAccount_ThrowsException() {
+        when(accountRepository.findById("nonexistent")).thenReturn(Optional.empty());
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> accountService.getBalance("nonexistent")
+        );
+        assertEquals("Account not found: nonexistent", exception.getMessage());
+        verify(accountRepository, times(1)).findById("nonexistent");
+    }
+
+    @Test
+    void getBalance_EmptyAccountId_ThrowsException() {
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> accountService.getBalance("")
+        );
+        assertEquals("Account ID must not be null", exception.getMessage());
         verify(accountRepository, never()).findById(anyString());
-    }
-
-    @Test
-    void processTransfer_NegativeAmount_ThrowsIllegalArgumentException() {
-        // Arrange
-        String fromAccountId = "account1";
-        String toAccountId = "account2";
-        BigDecimal amount = new BigDecimal("-200.00");
-
-        // Act & Assert
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
-                accountService.processTransfer(fromAccountId, toAccountId, amount));
-        assertEquals("Amount must be positive", exception.getMessage());
-        verify(accountRepository, never()).findById(anyString());
-    }
-
-    @Test
-    void processTransfer_AccountNotFound_ThrowsIllegalArgumentException() {
-        // Arrange
-        String fromAccountId = "account1";
-        String toAccountId = "account2";
-        BigDecimal amount = new BigDecimal("200.00");
-
-        when(accountRepository.findById(fromAccountId)).thenReturn(Optional.empty());
-
-        // Act & Assert
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
-                accountService.processTransfer(fromAccountId, toAccountId, amount));
-        assertEquals("Account not found: account1", exception.getMessage());
-        verify(accountRepository, times(1)).findById(fromAccountId);
-        verify(accountRepository, never()).findById(toAccountId);
     }
 }

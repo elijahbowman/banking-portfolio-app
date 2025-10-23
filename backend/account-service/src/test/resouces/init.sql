@@ -13,3 +13,16 @@
 --                           updated_at TIMESTAMP NOT NULL,
 --                           CONSTRAINT unique_transfer_id UNIQUE (transfer_id)
 -- );
+
+-- CREATE TABLE transaction (
+--                              transaction_id VARCHAR(255) PRIMARY KEY,
+--                              from_account_id VARCHAR(255),
+--                              to_account_id VARCHAR(255),
+--                              account_id VARCHAR(255),
+--                              amount NUMERIC(15,2) NOT NULL,
+--                              transaction_type VARCHAR(50) NOT NULL,
+--                              status VARCHAR(50) NOT NULL,
+--                              created_at TIMESTAMP NOT NULL,
+--                              updated_at TIMESTAMP NOT NULL,
+--                              CONSTRAINT unique_transaction_id UNIQUE (transaction_id)
+-- );

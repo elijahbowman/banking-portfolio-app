@@ -38,3 +38,6 @@ logging:
 #my:
 #  value: ${/banking/rds/password:NOT_SET}
 #  value2: ${password:NOT_SET}
+
+banking:
+  account-service-url: ${ACCOUNT_SERVICE_URL:http://account-service:8081}

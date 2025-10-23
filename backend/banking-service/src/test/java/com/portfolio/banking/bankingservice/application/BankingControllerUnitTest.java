@@ -1,5 +1,7 @@
 package com.portfolio.banking.bankingservice.application;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.portfolio.banking.bankingservice.domain.exception.BalanceFetchException;
 import com.portfolio.banking.bankingservice.domain.service.BankingService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,68 +21,189 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
-class BankingControllerUnitTests {
+class BankingControllerUnitTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @MockitoBean
     private BankingService bankingService;
 
     @Test
-    void shouldProcessValidDeposit() throws Exception {
-        Map<String, Object> successResponse = Map.of(
-                "transactionId", "test-123",
-                "accountId", "TEST001",
-                "amount", BigDecimal.valueOf(100.00),
-                "oldBalance", BigDecimal.ZERO,
-                "newBalance", BigDecimal.valueOf(100.00),
-                "status", "COMPLETED",
-                "timestamp", "2025-09-20T08:00:00"
+    void shouldProcessValidTransfer() throws Exception {
+        Map<String, Object> request = Map.of(
+                "fromAccountId", "account1",
+                "toAccountId", "account2",
+                "amount", "200.00"
+        );
+        Map<String, Object> response = Map.of(
+                "transactionId", "transfer1",
+                "status", "PENDING"
         );
 
-        when(bankingService.processDeposit(eq("TEST001"), any(BigDecimal.class)))
-                .thenReturn(successResponse);
+        when(bankingService.initiateTransfer("account1", "account2", new BigDecimal("200.00")))
+                .thenReturn(response);
 
-        mockMvc.perform(post("/api/v1/banking/deposits")
-                        .param("accountId", "TEST001")
-                        .param("amount", "100.00")
-                        .contentType(MediaType.APPLICATION_FORM_URLENCODED))
+        mockMvc.perform(post("/api/v1/banking/transfers")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("COMPLETED"))
-                .andExpect(jsonPath("$.accountId").value("TEST001"))
-                .andExpect(jsonPath("$.amount").value(100.00))
-                .andExpect(jsonPath("$.newBalance").value(100.00));
+                .andExpect(jsonPath("$.transactionId").value("transfer1"))
+                .andExpect(jsonPath("$.status").value("PENDING"));
     }
 
     @Test
-    void shouldHandleInvalidAmount() throws Exception {
-        when(bankingService.processDeposit(anyString(), any(BigDecimal.class)))
-                .thenThrow(new IllegalArgumentException("Deposit amount must be positive"));
+    void shouldProcessValidDeposit() throws Exception {
+        Map<String, Object> request = Map.of(
+                "accountId", "account1",
+                "amount", "100.00"
+        );
+        Map<String, Object> response = Map.of(
+                "transactionId", "deposit1",
+                "status", "PENDING"
+        );
+
+        when(bankingService.initiateDeposit("account1", new BigDecimal("100.00")))
+                .thenReturn(response);
 
         mockMvc.perform(post("/api/v1/banking/deposits")
-                        .param("accountId", "INVALID001")
-                        .param("amount", "0")
-                        .contentType(MediaType.APPLICATION_FORM_URLENCODED))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.transactionId").value("deposit1"))
+                .andExpect(jsonPath("$.status").value("PENDING"));
+    }
+
+    @Test
+    void shouldProcessValidWithdrawal() throws Exception {
+        Map<String, Object> request = Map.of(
+                "accountId", "account1",
+                "amount", "100.00"
+        );
+        Map<String, Object> response = Map.of(
+                "transactionId", "withdrawal1",
+                "status", "PENDING"
+        );
+
+        when(bankingService.initiateWithdrawal("account1", new BigDecimal("100.00")))
+                .thenReturn(response);
+
+        mockMvc.perform(post("/api/v1/banking/withdrawals")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.transactionId").value("withdrawal1"))
+                .andExpect(jsonPath("$.status").value("PENDING"));
+    }
+
+    @Test
+    void shouldReturnBalanceForValidAccount() throws Exception {
+        when(bankingService.getBalance("account1"))
+                .thenReturn(new BigDecimal("1000.00"));
+
+        mockMvc.perform(get("/api/v1/banking/accounts/account1/balance")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accountId").value("account1"))
+                .andExpect(jsonPath("$.balance").value(1000.00));
+    }
+
+    @Test
+    void shouldHandleInvalidAmountForTransfer() throws Exception {
+        Map<String, Object> request = Map.of(
+                "fromAccountId", "account1",
+                "toAccountId", "account2",
+                "amount", "0"
+        );
+
+        when(bankingService.initiateTransfer(anyString(), anyString(), any(BigDecimal.class)))
+                .thenThrow(new IllegalArgumentException("Amount must be positive"));
+
+        mockMvc.perform(post("/api/v1/banking/transfers")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.status").value("VALIDATION_ERROR"))
-                .andExpect(jsonPath("$.error").value("Deposit amount must be positive"));
+                .andExpect(jsonPath("$.message").value("Amount must be positive"))
+                .andExpect(jsonPath("$.status").value(400));
     }
 
     @Test
-    void shouldReturn400ForMissingAccountId() throws Exception {
+    void shouldHandleInvalidAmountForDeposit() throws Exception {
+        Map<String, Object> request = Map.of(
+                "accountId", "account1",
+                "amount", "0"
+        );
+
+        when(bankingService.initiateDeposit(anyString(), any(BigDecimal.class)))
+                .thenThrow(new IllegalArgumentException("Amount must be positive"));
+
         mockMvc.perform(post("/api/v1/banking/deposits")
-                        .param("amount", "100.00")
-                        .contentType(MediaType.APPLICATION_FORM_URLENCODED))
-                .andExpect(status().isBadRequest());
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Amount must be positive"))
+                .andExpect(jsonPath("$.status").value(400));
     }
 
     @Test
-    void shouldReturn400ForMissingAmount() throws Exception {
+    void shouldHandleInvalidAmountForWithdrawal() throws Exception {
+        Map<String, Object> request = Map.of(
+                "accountId", "account1",
+                "amount", "0"
+        );
+
+        when(bankingService.initiateWithdrawal(anyString(), any(BigDecimal.class)))
+                .thenThrow(new IllegalArgumentException("Amount must be positive"));
+
+        mockMvc.perform(post("/api/v1/banking/withdrawals")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Amount must be positive"))
+                .andExpect(jsonPath("$.status").value(400));
+    }
+
+    @Test
+    void shouldReturn400ForMissingAccountIdInDeposit() throws Exception {
+        Map<String, Object> request = Map.of(
+                "amount", "100.00"
+        );
+
         mockMvc.perform(post("/api/v1/banking/deposits")
-                        .param("accountId", "MISSING001")
-                        .contentType(MediaType.APPLICATION_FORM_URLENCODED))
-                .andExpect(status().isBadRequest());
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Account ID must not be null"))
+                .andExpect(jsonPath("$.status").value(400));
+    }
+
+    @Test
+    void shouldReturn400ForMissingAmountInWithdrawal() throws Exception {
+        Map<String, Object> request = Map.of(
+                "accountId", "account1"
+        );
+
+        mockMvc.perform(post("/api/v1/banking/withdrawals")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Amount must not be null"))
+                .andExpect(jsonPath("$.status").value(400));
+    }
+
+    @Test
+    void shouldHandleAccountServiceDownForBalance() throws Exception {
+        when(bankingService.getBalance("account1"))
+                .thenThrow(new BalanceFetchException("Failed to fetch balance for account: account1"));
+
+        mockMvc.perform(get("/api/v1/banking/accounts/account1/balance")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Failed to fetch balance for account: account1"))
+                .andExpect(jsonPath("$.status").value(400));
     }
 
     @Test

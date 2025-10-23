@@ -27,3 +27,6 @@ logging:
             test:
               context:
                 cache: DEBUG
+
+banking:
+  account-service-url: ${ACCOUNT_SERVICE_URL:http://account-service:8081}

@@ -1,6 +1,9 @@
 package com.portfolio.banking.bankingservice.application;
 
 import com.portfolio.banking.bankingservice.domain.service.BankingService;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
+import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -20,43 +23,67 @@ public class BankingController {
 
     private final BankingService bankingService;
 
+    @Data
+    public static class TransferRequest {
+        @NotNull(message = "From account ID must not be null")
+        private String fromAccountId;
+        @NotNull(message = "To account ID must not be null")
+        private String toAccountId;
+        @NotNull(message = "Amount must not be null")
+        private BigDecimal amount;
+    }
+
+    @Data
+    public static class DepositRequest {
+        @NotNull(message = "Account ID must not be null")
+        private String accountId;
+        @NotNull(message = "Amount must not be null")
+        private BigDecimal amount;
+    }
+
+    @Data
+    public static class WithdrawalRequest {
+        @NotNull(message = "Account ID must not be null")
+        private String accountId;
+        @NotNull(message = "Amount must not be null")
+        private BigDecimal amount;
+    }
+
+    @PostMapping("/transfers")
+    public ResponseEntity<Map<String, Object>> initiateTransfer(@Valid @RequestBody TransferRequest request) {
+        Map<String, Object> response = bankingService.initiateTransfer(
+                request.getFromAccountId(),
+                request.getToAccountId(),
+                request.getAmount()
+        );
+        return ResponseEntity.ok(response);
+    }
+
     @PostMapping("/deposits")
-    public ResponseEntity<Map<String, Object>> deposit(
-            @RequestParam String accountId,
-            @RequestParam BigDecimal amount) {
-
-        log.info("Received deposit request - Account: {}, Amount: {}", accountId, amount);
-
-        try {
-            // Call service with validated parameters
-            Map<String, Object> result = bankingService.processDeposit(accountId.trim(), amount);
-            log.info("Deposit successful - Transaction ID: {}", result.get("transactionId"));
-            return ResponseEntity.ok(result);
-
-        } catch (IllegalArgumentException e) {
-            log.warn("Service validation failed - Account: {}, Error: {}", accountId, e.getMessage());
-            return createValidationError(e.getMessage());
-
-        } catch (Exception e) {
-            log.error("Unexpected error for account {}: {}", accountId, e.getMessage(), e);
-            return createServerError();
-        }
+    public ResponseEntity<Map<String, Object>> initiateDeposit(@Valid @RequestBody DepositRequest request) {
+        Map<String, Object> response = bankingService.initiateDeposit(
+                request.getAccountId(),
+                request.getAmount()
+        );
+        return ResponseEntity.ok(response);
     }
 
-    private ResponseEntity<Map<String, Object>> createValidationError(String message) {
-        Map<String, Object> error = new HashMap<>();
-        error.put("error", message);
-        error.put("status", "VALIDATION_ERROR");
-        error.put("timestamp", LocalDateTime.now());
-        return ResponseEntity.badRequest().body(error);
+    @PostMapping("/withdrawals")
+    public ResponseEntity<Map<String, Object>> initiateWithdrawal(@Valid @RequestBody WithdrawalRequest request) {
+        Map<String, Object> response = bankingService.initiateWithdrawal(
+                request.getAccountId(),
+                request.getAmount()
+        );
+        return ResponseEntity.ok(response);
     }
 
-    private ResponseEntity<Map<String, Object>> createServerError() {
-        Map<String, Object> error = new HashMap<>();
-        error.put("error", "Internal server error");
-        error.put("status", "INTERNAL_ERROR");
-        error.put("timestamp", LocalDateTime.now());
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+    @GetMapping("/accounts/{accountId}/balance")
+    public ResponseEntity<Map<String, Object>> getBalance(@PathVariable String accountId) {
+        BigDecimal balance = bankingService.getBalance(accountId);
+        return ResponseEntity.ok(Map.of(
+                "accountId", accountId,
+                "balance", balance
+        ));
     }
 
     @GetMapping("/health")
@@ -83,13 +110,5 @@ public class BankingController {
         });
         info.put("timestamp", LocalDateTime.now());
         return ResponseEntity.ok(info);
-    }
-
-    @PostMapping("/transfers")
-    public ResponseEntity<Map<String, Object>> initiateTransfer(
-            @RequestParam String fromAccountId,
-            @RequestParam String toAccountId,
-            @RequestParam BigDecimal amount) {
-        return ResponseEntity.ok(bankingService.initiateTransfer(fromAccountId, toAccountId, amount));
     }
 }

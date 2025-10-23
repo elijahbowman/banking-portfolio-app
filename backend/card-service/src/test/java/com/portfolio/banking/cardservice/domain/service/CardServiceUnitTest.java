@@ -8,12 +8,15 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.kafka.core.KafkaTemplate;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -21,6 +24,9 @@ class CardServiceUnitTest {
 
     @Mock
     private CardRepository cardRepository;
+
+    @Mock
+    private KafkaTemplate<String, Object> kafkaTemplate;
 
     @InjectMocks
     private CardService cardService;
@@ -45,6 +51,8 @@ class CardServiceUnitTest {
         BigDecimal limit = new BigDecimal("500.00");
 
         doNothing().when(cardRepository).save(any(Card.class));
+        when(kafkaTemplate.send(eq("vcn-events"), any(String.class), any(Map.class)))
+                .thenReturn(null); // Mock KafkaTemplate send method
 
         // Act
         Card result = cardService.issueVCN(accountId, limit);
@@ -60,6 +68,7 @@ class CardServiceUnitTest {
         assertTrue(result.getVcn().startsWith("VCN-"));
         assertEquals(result.getCreatedAt().plusMonths(1).getMonth(), result.getExpiresAt().getMonth());
         verify(cardRepository, times(1)).save(any(Card.class));
+        verify(kafkaTemplate, times(1)).send(eq("vcn-events"), any(String.class), any(Map.class));
     }
 
     @Test
@@ -73,6 +82,7 @@ class CardServiceUnitTest {
                 cardService.issueVCN(accountId, limit));
         assertEquals("Limit must be positive", exception.getMessage());
         verify(cardRepository, never()).save(any(Card.class));
+        verify(kafkaTemplate, never()).send(anyString(), anyString(), any());
     }
 
     @Test
@@ -86,5 +96,6 @@ class CardServiceUnitTest {
                 cardService.issueVCN(accountId, limit));
         assertEquals("Limit must be positive", exception.getMessage());
         verify(cardRepository, never()).save(any(Card.class));
+        verify(kafkaTemplate, never()).send(anyString(), anyString(), any());
     }
 }
