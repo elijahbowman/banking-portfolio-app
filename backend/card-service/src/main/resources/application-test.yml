@@ -1,0 +1,27 @@
+spring:
+  application:
+    name: CardService
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: card-service-test-group
+      auto-offset-reset: earliest
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+
+spring.cloud.aws:
+  credentials:
+    access-key: test
+    secret-key: test
+  region:
+    static: us-east-1
+  dynamodb:
+    endpoint:
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+      base-path: /actuator
