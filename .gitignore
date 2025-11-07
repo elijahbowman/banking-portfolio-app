@@ -10,3 +10,5 @@ infrastructure/banking-deploy-cleanup-iam-policy.json
 .ebextensions/*
 
 .github/workflows/ci-cd_1.yml
+
+data

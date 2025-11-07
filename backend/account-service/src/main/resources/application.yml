@@ -27,16 +27,32 @@ spring:
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        acks: all
+        enable.idempotence: true
+        retries: 5
     consumer:
       group-id: account-group
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
       properties:
         spring:
+          deserializer:
+            value:
+              delegate:
+                class: org.springframework.kafka.support.serializer.JsonDeserializer
           json:
             trusted:
               packages: "*"
+            type:
+              mapping: event:java.util.Map
+            use:
+              type:
+                headers: false
+            value:
+              default:
+                type: java.util.Map
 management:
   endpoints:
     web:
@@ -46,12 +62,14 @@ management:
     health:
       show-details: always
 
+
 logging:
   level:
     com.portfolio.banking: INFO
     org.springframework.web: INFO
-    org.hibernate.SQL: DEBUG
-    org.springframework.kafka: ERROR
-    org.apache.kafka: ERROR
-    org.springframework.jdbc.datasource: DEBUG
+    org.hibernate.SQL: INFO
+    org.springframework.kafka: INFO
+    org.apache.kafka: INFO
+    org.springframework.jdbc.datasource: INFO
 #    io.awspring.cloud.paramstore: DEBUG
+    org.springframework.transaction: INFO

@@ -4,12 +4,24 @@ Parameters:
   ApplicationName:
     Type: String
     Default: banking-portfolio
-  EnvironmentName:
+  BankingEnvironmentName:
     Type: String
     Default: banking-env
+  AccountEnvironmentName:
+    Type: String
+    Default: account-env
+  CardEnvironmentName:
+    Type: String
+    Default: card-env
+  FrontendEnvironmentName:
+    Type: String
+    Default: frontend-env
   InstanceType:
     Type: String
     Default: t3.micro
+  InstanceType2:
+    Type: String
+    Default: t3.small
   SolutionStack:
     Type: String
     Default: 64bit Amazon Linux 2023 v4.7.1 running Docker
@@ -52,7 +64,9 @@ Resources:
                   - ssm:GetParameters
                   - ssm:GetParametersByPath
                   - ssm:DescribeParameters
-                Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/banking/rds/*'
+                Resource: 
+                  - !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/banking/rds/*'
+                  - !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/banking/frontend/*'
               - Effect: Allow
                 Action:
                   - kms:Decrypt
@@ -74,10 +88,46 @@ Resources:
     Properties:
       Roles:
         - !Ref EBInstanceRole
-  LaunchTemplate:
+  FrontendUrlSSMParam:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /banking/frontend/FRONTEND_URL
+      Type: String
+      Value: !Sub http://${FrontendEnvironment.EndpointURL}
+  BankingLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
-      LaunchTemplateName: !Sub ${EnvironmentName}-launch-template
+      LaunchTemplateName: !Sub ${BankingEnvironmentName}-launch-template
+      LaunchTemplateData:
+        InstanceType: !Ref InstanceType
+        SecurityGroupIds:
+          - !ImportValue banking-portfolio-core:EBSecurityGroupId
+        IamInstanceProfile:
+          Arn: !GetAtt EBInstanceProfile.Arn
+  AccountLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Sub ${AccountEnvironmentName}-launch-template
+      LaunchTemplateData:
+        InstanceType: !Ref InstanceType2
+        SecurityGroupIds:
+          - !ImportValue banking-portfolio-core:EBSecurityGroupId
+        IamInstanceProfile:
+          Arn: !GetAtt EBInstanceProfile.Arn
+  CardLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Sub ${CardEnvironmentName}-launch-template
+      LaunchTemplateData:
+        InstanceType: !Ref InstanceType
+        SecurityGroupIds:
+          - !ImportValue banking-portfolio-core:EBSecurityGroupId
+        IamInstanceProfile:
+          Arn: !GetAtt EBInstanceProfile.Arn
+  FrontendLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Sub ${FrontendEnvironmentName}-launch-template
       LaunchTemplateData:
         InstanceType: !Ref InstanceType
         SecurityGroupIds:
@@ -88,7 +138,7 @@ Resources:
     Type: AWS::ElasticBeanstalk::Environment
     Properties:
       ApplicationName: !Ref BankingApplication
-      EnvironmentName: !Ref EnvironmentName
+      EnvironmentName: !Ref BankingEnvironmentName
       SolutionStackName: !Ref SolutionStack
       OptionSettings:
         - Namespace: aws:autoscaling:asg
@@ -124,7 +174,142 @@ Resources:
         - Namespace: aws:elasticbeanstalk:healthreporting:system
           OptionName: SystemType
           Value: enhanced
+        - Namespace: aws:elasticbeanstalk:application:environment
+          OptionName: ACCOUNT_SERVICE_URL
+          Value: !GetAtt AccountEnvironment.EndpointURL
+  AccountEnvironment:
+    Type: AWS::ElasticBeanstalk::Environment
+    Properties:
+      ApplicationName: !Ref BankingApplication
+      EnvironmentName: !Ref AccountEnvironmentName
+      SolutionStackName: !Ref SolutionStack
+      OptionSettings:
+        - Namespace: aws:autoscaling:asg
+          OptionName: MinSize
+          Value: 1
+        - Namespace: aws:autoscaling:asg
+          OptionName: MaxSize
+          Value: 1
+        - Namespace: aws:ec2:vpc
+          OptionName: VPCId
+          Value: !Ref VpcId
+        - Namespace: aws:ec2:vpc
+          OptionName: Subnets
+          Value: !Join [',', [!Ref SubnetId1, !Ref SubnetId2]]
+        - Namespace: aws:autoscaling:launchconfiguration
+          OptionName: SecurityGroups
+          Value: !ImportValue banking-portfolio-core:EBSecurityGroupId
+        - Namespace: aws:elasticbeanstalk:environment
+          OptionName: EnvironmentType
+          Value: SingleInstance
+        - Namespace: aws:autoscaling:launchconfiguration
+          OptionName: IamInstanceProfile
+          Value: !Ref EBInstanceProfile
+        - Namespace: aws:elasticbeanstalk:application:environment
+          OptionName: RDS_ENDPOINT
+          Value: !ImportValue banking-portfolio-core:RDSEndpoint
+        - Namespace: aws:elasticbeanstalk:application:environment
+          OptionName: KAFKA_BROKER
+          Value: !ImportValue banking-portfolio-core:KafkaBroker
+        - Namespace: aws:elasticbeanstalk:application:environment
+          OptionName: SPRING_PROFILES_ACTIVE
+          Value: docker
+        - Namespace: aws:elasticbeanstalk:healthreporting:system
+          OptionName: SystemType
+          Value: enhanced
+  CardEnvironment:
+    Type: AWS::ElasticBeanstalk::Environment
+    Properties:
+      ApplicationName: !Ref BankingApplication
+      EnvironmentName: !Ref CardEnvironmentName
+      SolutionStackName: !Ref SolutionStack
+      OptionSettings:
+        - Namespace: aws:autoscaling:asg
+          OptionName: MinSize
+          Value: 1
+        - Namespace: aws:autoscaling:asg
+          OptionName: MaxSize
+          Value: 1
+        - Namespace: aws:ec2:vpc
+          OptionName: VPCId
+          Value: !Ref VpcId
+        - Namespace: aws:ec2:vpc
+          OptionName: Subnets
+          Value: !Join [',', [!Ref SubnetId1, !Ref SubnetId2]]
+        - Namespace: aws:autoscaling:launchconfiguration
+          OptionName: SecurityGroups
+          Value: !ImportValue banking-portfolio-core:EBSecurityGroupId
+        - Namespace: aws:autoscaling:launchconfiguration
+          OptionName: IamInstanceProfile
+          Value: !Ref EBInstanceProfile
+        - Namespace: aws:elasticbeanstalk:application:environment
+          OptionName: RDS_ENDPOINT
+          Value: !ImportValue banking-portfolio-core:RDSEndpoint
+        - Namespace: aws:elasticbeanstalk:application:environment
+          OptionName: KAFKA_BROKER
+          Value: !ImportValue banking-portfolio-core:KafkaBroker
+        - Namespace: aws:elasticbeanstalk:application:environment
+          OptionName: SPRING_PROFILES_ACTIVE
+          Value: docker
+        - Namespace: aws:elasticbeanstalk:application:environment
+          OptionName: AWS_REGION
+          Value: !Ref AWS::Region
+        - Namespace: aws:elasticbeanstalk:healthreporting:system
+          OptionName: SystemType
+          Value: enhanced
+  FrontendEnvironment:
+    Type: AWS::ElasticBeanstalk::Environment
+    Properties:
+      ApplicationName: !Ref BankingApplication
+      EnvironmentName: !Ref FrontendEnvironmentName
+      SolutionStackName: !Ref SolutionStack
+      OptionSettings:
+        - Namespace: aws:autoscaling:asg
+          OptionName: MinSize
+          Value: 1
+        - Namespace: aws:autoscaling:asg
+          OptionName: MaxSize
+          Value: 1
+        - Namespace: aws:ec2:vpc
+          OptionName: VPCId
+          Value: !Ref VpcId
+        - Namespace: aws:ec2:vpc
+          OptionName: Subnets
+          Value: !Join [',', [!Ref SubnetId1, !Ref SubnetId2]]
+        - Namespace: aws:autoscaling:launchconfiguration
+          OptionName: SecurityGroups
+          Value: !ImportValue banking-portfolio-core:EBSecurityGroupId
+        - Namespace: aws:elasticbeanstalk:environment
+          OptionName: EnvironmentType
+          Value: SingleInstance
+        - Namespace: aws:autoscaling:launchconfiguration
+          OptionName: IamInstanceProfile
+          Value: !Ref EBInstanceProfile
+        - Namespace: aws:elasticbeanstalk:application:environment
+          OptionName: BANKING_SERVICE_URL
+          Value: !GetAtt BankingEnvironment.EndpointURL
+        - Namespace: aws:elasticbeanstalk:application:environment
+          OptionName: ACCOUNT_SERVICE_URL
+          Value: !GetAtt AccountEnvironment.EndpointURL
+        - Namespace: aws:elasticbeanstalk:application:environment
+          OptionName: CARD_SERVICE_URL
+          Value: !GetAtt CardEnvironment.EndpointURL
+        - Namespace: aws:elasticbeanstalk:healthreporting:system
+          OptionName: SystemType
+          Value: enhanced
 Outputs:
   EBEnvironmentUrl:
     Description: URL for banking-env
     Value: !GetAtt BankingEnvironment.EndpointURL
+  AccountEnvironmentUrl:
+    Description: URL for account-env
+    Value: !GetAtt AccountEnvironment.EndpointURL
+  CardEnvironmentUrl:
+    Description: URL for card-env
+    Value: !GetAtt CardEnvironment.EndpointURL
+  FrontendEnvironmentUrl:
+    Description: URL for frontend-env
+    Value: !GetAtt FrontendEnvironment.EndpointURL
+  FrontendUrl:
+    Description: SSM Parameter store key for the Frontend URL
+    Value: /banking/frontend/url

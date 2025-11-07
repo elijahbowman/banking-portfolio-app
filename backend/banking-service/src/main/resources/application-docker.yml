@@ -1,11 +1,11 @@
 spring:
   config:
-    import: "aws-parameterstore:/banking/rds/"
+    import: "aws-parameterstore:/banking/rds/;/banking/frontend/"
   datasource:
     url: jdbc:postgresql://${RDS_ENDPOINT}:5432/bankingdb
     driver-class-name: org.postgresql.Driver
     username: bank_admin
-    password: ${password}
+    password: ${RDS_PASSWORD}
     hikari:
       maximum-pool-size: 10
   jpa:
@@ -22,15 +22,29 @@ spring:
         enable.idempotence: true
         retries: 5
 
+  h2:
+    console:
+      enabled: false
+      path:
+      settings:
+        web-allow-others:
+
 logging:
   level:
-    io.awspring.cloud.paramstore.AwsParamStorePropertySource: DEBUG
+    io.awspring.cloud.paramstore.AwsParamStorePropertySource: INFO
 #    org.springframework.boot.context.config.ConfigDataEnvironment: TRACE
     com.portfolio.banking: INFO
-    org.springframework.kafka: ERROR
-    org.apache.kafka: ERROR
-    org.springframework.jdbc.datasource: DEBUG
+    org.springframework.kafka: INFO
+    org.apache.kafka: INFO
+    org.springframework.jdbc.datasource: INFO
 #    io.awspring.cloud.paramstore: DEBUG
+    logging:
+      level:
+        org:
+          hibernate:
+            type:
+              descriptor:
+                sql: INFO
 
   file:
     name: /app/logs/banking-service.log
@@ -40,4 +54,6 @@ logging:
 #  value2: ${password:NOT_SET}
 
 banking:
-  account-service-url: ${ACCOUNT_SERVICE_URL:http://account-service:8081}
+  account-service-url: http://${ACCOUNT_SERVICE_URL}
+  cors:
+    allowed-origins: ${FRONTEND_URL}

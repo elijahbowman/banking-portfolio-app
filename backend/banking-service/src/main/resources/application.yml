@@ -1,8 +1,6 @@
 spring:
   application:
     name: BankingService
-  server:
-    port: 8080
   datasource:
     url: jdbc:h2:mem:bankingdb;DB_CLOSE_DELAY=-1
 #    driver-class-name: org.h2.Driver
@@ -27,6 +25,14 @@ spring:
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        acks: all
+        enable.idempotence: true
+        retries: 5
+
+banking:
+  cors:
+    allowed-origins: http://localhost:5713
 
 management:
   endpoints:
@@ -41,8 +47,11 @@ logging:
   level:
     com.portfolio.banking: INFO
     org.springframework.web: INFO
-    org.hibernate.SQL: DEBUG
-    org.springframework.kafka: ERROR
-    org.apache.kafka: ERROR
-    org.springframework.jdbc.datasource: DEBUG
+    org.hibernate.SQL: INFO
+    org.springframework.kafka: INFO
+    org.apache.kafka: INFO
+    org.springframework.jdbc.datasource: INFO
 #    io.awspring.cloud.paramstore: DEBUG
+
+server:
+  port: 8080

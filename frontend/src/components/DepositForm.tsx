@@ -31,7 +31,7 @@ export default function DepositForm() {
                     placeholder="Account ID"
                     value={form.accountId}
                     onChange={(e) => setForm({ ...form, accountId: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500"
+                    className="w-full px-4 py-2 border border-gray-300 text-black rounded-md focus:ring-2 focus:ring-green-500"
                 />
                 <input
                     type="number"
@@ -39,7 +39,7 @@ export default function DepositForm() {
                     placeholder="Amount"
                     value={form.amount}
                     onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500"
+                    className="w-full px-4 py-2 border border-gray-300 text-black rounded-md focus:ring-2 focus:ring-green-500"
                 />
                 <button
                     type="submit"

@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Core infrastructure for banking-service (RDS, Kafka, S3)
+Description: Core infrastructure for banking-service (RDS, Kafka, S3, DynamoDB)
 Parameters:
   RDSDBName:
     Type: String
@@ -10,6 +10,9 @@ Parameters:
   InstanceType:
     Type: String
     Default: t3.micro
+  InstanceType2:
+    Type: String
+    Default: t3.small
   VpcId:
     Type: AWS::EC2::VPC::Id
   SubnetId1:
@@ -45,6 +48,10 @@ Resources:
           FromPort: 5432
           ToPort: 5432
           SourceSecurityGroupId: !Ref EBSecurityGroup
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          CidrIp: !Ref YourIP  # Temporary for SSH
   EBSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -54,6 +61,18 @@ Resources:
         - IpProtocol: tcp
           FromPort: 80
           ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 8081
+          ToPort: 8081
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 8082
+          ToPort: 8082
           CidrIp: 0.0.0.0/0
       SecurityGroupEgress:
         - IpProtocol: -1
@@ -118,7 +137,7 @@ Resources:
       DBInstanceIdentifier: banking-postgres
       DBName: !Ref RDSDBName
       AllocatedStorage: 20
-      DBInstanceClass: db.t3.micro
+      DBInstanceClass: !Sub db.${InstanceType}
       Engine: postgres
       EngineVersion: 17.5
       MasterUsername: !Ref RDSUsername
@@ -126,7 +145,7 @@ Resources:
       VPCSecurityGroups:
         - !Ref RDSSecurityGroup
       DBSubnetGroupName: !Ref DBSubnetGroup
-      PubliclyAccessible: false
+      PubliclyAccessible: true
   DBSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
     Properties:
@@ -137,7 +156,7 @@ Resources:
   KafkaZookeeperInstance:
     Type: AWS::EC2::Instance
     Properties:
-      InstanceType: !Ref InstanceType
+      InstanceType: !Ref InstanceType2
       ImageId: ami-052064a798f08f0d3
       KeyName: !Ref KeyName
       SubnetId: !Ref SubnetId1
@@ -168,31 +187,32 @@ Resources:
                 - zookeeper_data:/bitnami/zookeeper
               networks:
                 - kafka-network
+              restart: unless-stopped
               healthcheck:
                 # test: ["CMD", "nc", "-z", "localhost", "2181"]
                 test: ["CMD", "zkServer.sh", "status"]
                 interval: 10s
                 timeout: 5s
-                retries: 6
-                start_period: 30s
+                retries: 10
+                start_period: 60s
             kafka:
               image: bitnamilegacy/kafka:3.7
               container_name: kafka
               ports:
                 - "9092:9092"
               environment:
-                KAFKA_CFG_ZOOKEEPER_CONNECT: zookeeper:2181
+                KAFKA_CFG_ZOOKEEPER_CONNECT: __PRIVATE_IP__:2181
                 KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://__PRIVATE_IP__:9092
                 KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: true
                 KAFKA_HEAP_OPTS: -Xmx256m -Xms256m
                 KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
-                # KAFKA_AUTO_CREATE_TOPICS_ENABLE: true
-                # KAFKA_CFG_LISTENERS: PLAINTEXT://:9092
-                # KAFKA_CFG_BROKER_ID: 1
-                # KAFKA_CFG_NUM_PARTITIONS: 1
-                # KAFKA_CFG_DEFAULT_REPLICATION_FACTOR: 1
-                # KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-                # ALLOW_PLAINTEXT_LISTENER: yes
+                KAFKA_AUTO_CREATE_TOPICS_ENABLE: true
+                KAFKA_CFG_LISTENERS: PLAINTEXT://:9092
+                KAFKA_CFG_BROKER_ID: 1
+                KAFKA_CFG_NUM_PARTITIONS: 1
+                KAFKA_CFG_DEFAULT_REPLICATION_FACTOR: 1
+                KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+                ALLOW_PLAINTEXT_LISTENER: yes
               depends_on:
                 zookeeper:
                   condition: service_healthy
@@ -200,12 +220,13 @@ Resources:
                 - kafka_data:/bitnami/kafka
               networks:
                 - kafka-network
+              restart: unless-stopped
               healthcheck:
                 test: ["CMD", "kafka-topics.sh", "--list", "--bootstrap-server", "localhost:9092"]
                 interval: 15s
                 timeout: 10s
                 retries: 6
-                start_period: 30s
+                start_period: 45s
           volumes:
             zookeeper_data:
             kafka_data:
@@ -221,6 +242,48 @@ Resources:
       Tags:
         - Key: Name
           Value: kafka-zookeeper
+  CardsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: Cards
+      AttributeDefinitions:
+        - AttributeName: cardId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: cardId
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+      StreamSpecification:
+        StreamViewType: NEW_IMAGE
+  DynamoDBAccessRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: DynamoDBAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                  - dynamodb:GetItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:DeleteItem
+                Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/Cards
+  DynamoDBInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref DynamoDBAccessRole
 Outputs:
   RDSEndpoint:
     Description: Endpoint for banking-postgres
@@ -242,3 +305,8 @@ Outputs:
     Value: !Ref ArtifactsBucket
     Export:
       Name: !Sub ${AWS::StackName}:ArtifactsBucketName
+  DynamoDBTable:
+    Description: DynamoDB table for cards
+    Value: !Ref CardsTable
+    Export:
+      Name: !Sub ${AWS::StackName}:DynamoDBTable

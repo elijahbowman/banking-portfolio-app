@@ -19,9 +19,5 @@ spring.cloud.aws:
   dynamodb:
     endpoint:
 
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info
-      base-path: /actuator
+server:
+  port: 0

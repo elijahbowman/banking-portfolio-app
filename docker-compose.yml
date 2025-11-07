@@ -83,8 +83,8 @@ services:
       SPRING_DATASOURCE_USERNAME: testuser
       SPRING_DATASOURCE_PASSWORD: testpass
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      SPRING_PROFILES_ACTIVE: docker
-      JAVA_OPTS: "-Xms256m -Xmx512m -Dspring.profiles.active=docker"
+      SPRING_PROFILES_ACTIVE: docker-local
+      JAVA_OPTS: "-Xms256m -Xmx512m -Dspring.profiles.active=docker-local"
     depends_on:
       postgres:
         condition: service_healthy
@@ -101,6 +101,63 @@ services:
     restart: unless-stopped
     volumes:
       - banking-logs:/app/logs
+      - ./data/banking-service:/app/logs
+
+  account-service:
+    build:
+      context: ./backend/account-service
+      dockerfile: Dockerfile
+    container_name: account-service
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/testdb
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
+      SPRING_DATASOURCE_USERNAME: testuser
+      SPRING_DATASOURCE_PASSWORD: testpass
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_PROFILES_ACTIVE: docker-local
+      JAVA_OPTS: "-Xms256m -Xmx512m -Dspring.profiles.active=docker-local"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    networks:
+      - banking-network
+    restart: unless-stopped
+    volumes:
+      - account-logs:/app/logs
+      - ./data/account-service:/app/logs
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: banking-frontend
+    ports:
+      - "80:80"
+    environment:
+      BANKING_SERVICE_URL: http://localhost:8080
+      ACCOUNT_SERVICE_URL: http://localhost:8081
+      CARD_SERVICE_URL: http://localhost:8082
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    networks:
+      - banking-network
+    restart: unless-stopped
+    volumes:
+      - frontend-logs:/app/logs
 
 networks:
   banking-network:
@@ -111,4 +168,8 @@ volumes:
   postgres-data:
     driver: local
   banking-logs:
+    driver: local
+  account-logs:
+    driver: local
+  frontend-logs:
     driver: local

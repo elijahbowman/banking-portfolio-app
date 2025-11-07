@@ -1,11 +1,8 @@
 spring:
-  config:
-    import: "aws-parameterstore:/banking/rds/"
   datasource:
-    url: jdbc:postgresql://${RDS_ENDPOINT}:5432/bankingdb
-    driver-class-name: org.postgresql.Driver
-    username: bank_admin
-    password: ${password}
+    url: jdbc:postgresql://localhost:5432/testdb
+    username: testuser
+    password: testpass
     hikari:
       maximum-pool-size: 10
   jpa:
@@ -13,9 +10,9 @@ spring:
       ddl-auto: update
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
+        dialect:
   kafka:
-    bootstrap-servers: ${KAFKA_BROKER}
+    bootstrap-servers:
 
   h2:
     console:
@@ -26,8 +23,7 @@ spring:
 
 logging:
   level:
-    io.awspring.cloud.paramstore.AwsParamStorePropertySource: INFO
-#    org.springframework.boot.context.config.ConfigDataEnvironment: TRACE
+    org.springframework.boot.context: INFO
     com.portfolio.banking: INFO
     org.springframework.kafka: INFO
     org.apache.kafka: INFO

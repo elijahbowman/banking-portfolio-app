@@ -35,14 +35,14 @@ export default function TransferForm() {
                     placeholder="From Account ID"
                     value={form.fromAccountId}
                     onChange={(e) => setForm({ ...form, fromAccountId: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-4 py-2 border border-gray-300 text-black rounded-md focus:ring-2 focus:ring-purple-500"
                 />
                 <input
                     type="text"
                     placeholder="To Account ID"
                     value={form.toAccountId}
                     onChange={(e) => setForm({ ...form, toAccountId: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-4 py-2 border border-gray-300 text-black rounded-md focus:ring-2 focus:ring-purple-500"
                 />
                 <input
                     type="number"
@@ -50,7 +50,7 @@ export default function TransferForm() {
                     placeholder="Amount"
                     value={form.amount}
                     onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-4 py-2 border border-gray-300 text-black rounded-md focus:ring-2 focus:ring-purple-500"
                 />
                 <button
                     type="submit"

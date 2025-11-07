@@ -243,6 +243,7 @@
 					<autoUpdate>${odc.autoUpdate}</autoUpdate>
 					<!--					<outputDirectory>${project.reporting.outputDirectory}/dependency-check-report</outputDirectory>-->
 					<!--					<dataDirectory>${user.home}/.m2/repository/org/owasp/dependency-check-data</dataDirectory>-->
+					<skip>${dependency.check.skip}</skip>
 				</configuration>
 				<executions>
 					<execution>

@@ -11,8 +11,3 @@ spring:
         static: ${AWS_REGION:us-east-1}
       dynamodb:
         endpoint: ${AWS_DYNAMODB_ENDPOINT:https://dynamodb.us-east-1.amazonaws.com}
-
-management:
-  endpoints:
-    web:
-      base-path: /actuator

@@ -1,5 +1,6 @@
 package com.portfolio.banking.bankingservice.domain.service;
 
+import com.portfolio.banking.bankingservice.domain.entity.Account;
 import com.portfolio.banking.bankingservice.domain.exception.BalanceFetchException;
 import com.portfolio.banking.bankingservice.repository.AccountRepository;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +20,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -65,6 +67,8 @@ public class BankingService {
     @Transactional
     public Map<String, Object> initiateDeposit(String accountId, BigDecimal amount) {
         validateDeposit(accountId, amount);
+
+        findOrCreateAccount(accountId);
 
         accountRepository.findById(accountId)
                 .orElseThrow(() -> new IllegalArgumentException("Account not found: " + accountId));
@@ -168,6 +172,29 @@ public class BankingService {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Amount must be positive");
         }
+    }
+
+    private Account findOrCreateAccount(String accountId) {
+        Optional<Account> existingAccount = accountRepository.findById(accountId);
+
+        if (existingAccount.isPresent()) {
+            log.debug("Found existing account: {}", accountId);
+            return existingAccount.get();
+        }
+
+        log.info("Creating new account: {}", accountId);
+        Account newAccount = new Account();
+        newAccount.setAccountId(accountId);
+        newAccount.setAccountNumber(generateAccountNumber(accountId));
+        newAccount.setCustomerName("Portfolio Customer " + accountId);
+        newAccount.setBalance(BigDecimal.ZERO);
+        newAccount.setCreatedAt(LocalDateTime.now());
+
+        return accountRepository.save(newAccount);
+    }
+
+    private String generateAccountNumber(String accountId) {
+        return "ACC" + accountId.substring(accountId.length() - 4).toUpperCase();
     }
 
     public Map<String, Object> getSystemHealth() {

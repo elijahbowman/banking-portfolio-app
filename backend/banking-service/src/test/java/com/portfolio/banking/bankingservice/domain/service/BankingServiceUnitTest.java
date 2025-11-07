@@ -119,7 +119,7 @@ class BankingServiceUnitTest {
         assertNotNull(result);
         assertTrue(result.containsKey("transactionId"));
         assertEquals("PENDING", result.get("status"));
-        verify(accountRepository, times(1)).findById("account1");
+        verify(accountRepository, times(2)).findById("account1");
         verify(kafkaTemplate, times(1)).send(eq("transaction-events"), anyString(), any(Map.class));
     }
 
