@@ -83,6 +83,22 @@ Resources:
                 Resource:
                   - !Sub arn:aws:s3:::${ArtifactsBucketName}/*
                   - !Sub arn:aws:s3:::elasticbeanstalk-${AWS::Region}-${AWS::AccountId}/*
+        - PolicyName: EBAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                  - ssm:GetParameters
+                  - elasticbeanstalk:DescribeEnvironments
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: '*'
   EBInstanceProfile:
     Type: AWS::IAM::InstanceProfile
     Properties:
@@ -239,6 +255,9 @@ Resources:
         - Namespace: aws:autoscaling:launchconfiguration
           OptionName: SecurityGroups
           Value: !ImportValue banking-portfolio-core:EBSecurityGroupId
+        - Namespace: aws:elasticbeanstalk:environment
+          OptionName: EnvironmentType
+          Value: SingleInstance
         - Namespace: aws:autoscaling:launchconfiguration
           OptionName: IamInstanceProfile
           Value: !Ref EBInstanceProfile
@@ -263,6 +282,7 @@ Resources:
       ApplicationName: !Ref BankingApplication
       EnvironmentName: !Ref FrontendEnvironmentName
       SolutionStackName: !Ref SolutionStack
+      CNAMEPrefix: bankingportal
       OptionSettings:
         - Namespace: aws:autoscaling:asg
           OptionName: MinSize
