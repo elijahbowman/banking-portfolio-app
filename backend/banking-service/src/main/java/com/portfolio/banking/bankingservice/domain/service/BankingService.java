@@ -174,6 +174,15 @@ public class BankingService {
         }
     }
 
+    private void validateAccountIdFormat(String accountId) throws IllegalArgumentException {
+        final String ACCOUNT_ID_REGEX = "^[a-zA-Z][a-zA-Z0-9]{3,13}$";
+        final String ERROR_MESSAGE = "Account ID must start with a letter, must be 4 to 14 characters, and can only contain letters (A-Z, a-z) and numbers (0-9)";
+
+        if (accountId == null || !accountId.matches(ACCOUNT_ID_REGEX)) {
+            throw new IllegalArgumentException(ERROR_MESSAGE);
+        }
+    }
+
     private Account findOrCreateAccount(String accountId) {
         Optional<Account> existingAccount = accountRepository.findById(accountId);
 
@@ -181,6 +190,9 @@ public class BankingService {
             log.debug("Found existing account: {}", accountId);
             return existingAccount.get();
         }
+
+        // Check accountId format
+        validateAccountIdFormat(accountId);
 
         log.info("Creating new account: {}", accountId);
         Account newAccount = new Account();

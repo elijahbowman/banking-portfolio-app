@@ -12,3 +12,5 @@ infrastructure/banking-deploy-cleanup-iam-policy.json
 .github/workflows/ci-cd_1.yml
 
 data
+
+update-banking-service.sh

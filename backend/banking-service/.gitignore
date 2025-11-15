@@ -37,3 +37,5 @@ build/
 .ebextensions
 bootstrap.yml
 Dockerrun.aws.json
+
+/source-bundle.zip

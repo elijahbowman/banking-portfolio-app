@@ -382,6 +382,7 @@ jobs:
         # Log bucket status for debugging
         echo "Checking bucket s3://${{ env.S3_BUCKET }}"
         aws s3 ls s3://${{ env.S3_BUCKET }}/ && echo "Bucket s3://${{ env.S3_BUCKET }} exists" || echo "Bucket s3://${{ env.S3_BUCKET }} does not exist"
+        
         echo "Checking bucket s3://elasticbeanstalk-${{ env.AWS_REGION }}-${{ secrets.AWS_ACCOUNT_ID }}"
         aws s3 ls s3://elasticbeanstalk-${{ env.AWS_REGION }}-${{ secrets.AWS_ACCOUNT_ID }}/ && echo "Bucket s3://elasticbeanstalk-${{ env.AWS_REGION }}-${{ secrets.AWS_ACCOUNT_ID }} exists" || echo "Bucket s3://elasticbeanstalk-${{ env.AWS_REGION }}-${{ secrets.AWS_ACCOUNT_ID }} does not exist"
 

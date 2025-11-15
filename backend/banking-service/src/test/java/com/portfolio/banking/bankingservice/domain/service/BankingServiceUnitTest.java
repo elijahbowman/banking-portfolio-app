@@ -268,6 +268,35 @@ class BankingServiceUnitTest {
     }
 
     @Test
+    void shouldThrowExceptionForInvalidAccountIdFormat() {
+        final String[] INVALID_ACCOUNT_IDS = {
+                "account!",
+                "test@123",
+                "A@ccount#1",
+                "abc^def*",
+                "has spaces",
+                "abc",
+                "abcde0123456789",
+                "1account"
+        };
+
+        for (String invalidAccountID : INVALID_ACCOUNT_IDS) {
+            IllegalArgumentException exception = assertThrows(
+                    IllegalArgumentException.class,
+                    () -> bankingService.initiateDeposit(invalidAccountID, new BigDecimal("1.00"))
+            );
+            assertEquals("Account ID must start with a letter, must be 4 to 14 characters, and can only contain letters (A-Z, a-z) and numbers (0-9)", exception.getMessage());
+        }
+
+        verify(restTemplate, never()).exchange(
+                anyString(),
+                any(HttpMethod.class),
+                any(HttpEntity.class),
+                any(ParameterizedTypeReference.class)
+        );
+    }
+
+    @Test
     void shouldThrowExceptionForNullResponseBody() {
         when(restTemplate.exchange(
                 contains("accountId=account1"),
