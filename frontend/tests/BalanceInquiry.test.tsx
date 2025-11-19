@@ -19,7 +19,7 @@ test('fetches and displays balance', async () => {
 
 test('displays error on failed balance fetch', async () => {
     server.use(
-        http.get('http://localhost:8080/api/v1/accounts/balance', () => {
+        http.get('http://localhost:8080/api/v1/banking/accounts/:accountId/balance', () => {
             return new HttpResponse(null, { status: 400 })
         })
     )

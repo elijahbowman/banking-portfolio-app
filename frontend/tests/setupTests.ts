@@ -19,9 +19,8 @@ const handlers = [
     }),
 
     // Balance Inquiry
-    http.get('http://localhost:8080/api/v1/accounts/balance', ({ request }) => {
-        const url = new URL(request.url)
-        const accountId = url.searchParams.get('accountId')
+    http.get('http://localhost:8080/api/v1/banking/accounts/:accountId/balance', ({ params }) => {
+        const { accountId } = params
         if (accountId === 'account1') {
             return HttpResponse.json({ accountId, balance: '1000.00' })
         }
