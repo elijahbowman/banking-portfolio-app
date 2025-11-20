@@ -55,7 +55,7 @@ export const getApi = async () => {
             apiInstance = axios.create({
                 baseURL: `${config.BANKING_SERVICE_URL}/api/v1/banking`,
             });
-            console.log('API baseURL:', apiInstance.getUri());
+            // console.log('API baseURL:', apiInstance.getUri());
         } catch (error) {
             console.error('getApi error:', error);
             throw error;

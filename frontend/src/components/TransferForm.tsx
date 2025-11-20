@@ -1,30 +1,24 @@
 import { useState } from 'react'
-import { transfer } from '../services/api'
-import type { TransactionRequest, TransactionResponse } from '../types'
+import { useAppDispatch, useAppSelector } from '../store/hooks'
+import { makeTransfer } from '../store/slices/transferSlice'
 
 export default function TransferForm() {
-    const [form, setForm] = useState<TransactionRequest>({
-        fromAccountId: '',
-        toAccountId: '',
-        amount: '',
-    })
-    const [result, setResult] = useState<TransactionResponse | null>(null)
-    const [loading, setLoading] = useState(false)
-    const [error, setError] = useState('')
+  const [form, setForm] = useState({
+    fromAccountId: '',
+    toAccountId: '',
+    amount: '',
+  })
+  const dispatch = useAppDispatch()
+  const { data: result, status, error } = useAppSelector(state => state.transfers)
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault()
-        setLoading(true)
-        setError('')
-        try {
-            const data = await transfer(form)
-            setResult(data)
-        } catch (err: any) {
-            setError(err.response?.data?.message || 'Transfer failed')
-        } finally {
-            setLoading(false)
-        }
-    }
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    dispatch(makeTransfer({
+      fromAccountId: form.fromAccountId,
+      toAccountId: form.toAccountId,
+      amount: form.amount,
+    }))
+  }
 
     return (
         <div className="max-w-md mx-auto p-6 bg-white rounded-lg shadow-md">
@@ -54,10 +48,10 @@ export default function TransferForm() {
                 />
                 <button
                     type="submit"
-                    disabled={loading || !form.fromAccountId || !form.toAccountId || !form.amount}
+                    disabled={status == 'loading' || !form.fromAccountId || !form.toAccountId || !form.amount}
                     className="w-full py-2 px-4 bg-purple-600 text-white font-medium rounded-md hover:bg-purple-700 disabled:bg-gray-400"
                 >
-                    {loading ? 'Processing...' : 'Transfer'}
+                    {status == 'loading' ? 'Processing...' : 'Transfer'}
                 </button>
             </form>
 

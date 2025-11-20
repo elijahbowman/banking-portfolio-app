@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '../tests/test-utils'
 import userEvent from '@testing-library/user-event'
 import WithdrawalForm from '../src/components/WithdrawalForm'
 import { server } from './setupTests'

@@ -1,26 +1,19 @@
 import { useState } from 'react'
-import { deposit } from '../services/api'
-import type { TransactionRequest, TransactionResponse } from '../types'
+import { useAppDispatch, useAppSelector } from '../store/hooks'
+import { makeDeposit } from '../store/slices/depositSlice'
 
 export default function DepositForm() {
-    const [form, setForm] = useState<TransactionRequest>({ accountId: '', amount: '' })
-    const [result, setResult] = useState<TransactionResponse | null>(null)
-    const [loading, setLoading] = useState(false)
-    const [error, setError] = useState('')
+  const [form, setForm] = useState({ accountId: '', amount: '' })
+  const dispatch = useAppDispatch()
+  const { data: result, status, error } = useAppSelector(state => state.deposits)
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault()
-        setLoading(true)
-        setError('')
-        try {
-            const data = await deposit(form)
-            setResult(data)
-        } catch (err: any) {
-            setError(err.response?.data?.message || 'Deposit failed')
-        } finally {
-            setLoading(false)
-        }
-    }
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    dispatch(makeDeposit({
+      accountId: form.accountId,
+      amount: form.amount
+    }))
+  }
 
     return (
         <div className="max-w-md mx-auto p-6 bg-white rounded-lg shadow-md">
@@ -43,10 +36,10 @@ export default function DepositForm() {
                 />
                 <button
                     type="submit"
-                    disabled={loading || !form.accountId || !form.amount}
+                    disabled={status == 'loading' || !form.accountId || !form.amount}
                     className="w-full py-2 px-4 bg-green-600 text-white font-medium rounded-md hover:bg-green-700 disabled:bg-gray-400"
                 >
-                    {loading ? 'Processing...' : 'Deposit'}
+                    {status == 'loading' ? 'Processing...' : 'Deposit'}
                 </button>
             </form>
 
