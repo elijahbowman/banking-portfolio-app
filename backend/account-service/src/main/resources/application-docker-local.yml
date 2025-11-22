@@ -1,8 +1,5 @@
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/testdb
-    username: testuser
-    password: testpass
     hikari:
       maximum-pool-size: 10
   jpa:

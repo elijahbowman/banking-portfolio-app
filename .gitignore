@@ -14,3 +14,4 @@ infrastructure/banking-deploy-cleanup-iam-policy.json
 data
 
 update-banking-service.sh
+delete-stacks.sh
