@@ -1,0 +1,71 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Card Service - Serverless (Lambda + API Gateway)
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 1024
+    Runtime: java17
+    Architectures: [x86_64]
+    Environment:
+      Variables:
+        SPRING_PROFILES_ACTIVE: prod
+        JAVA_TOOL_OPTIONS: -XX:+TieredCompilation -XX:TieredStopAtLevel=1
+
+Resources:
+  CardServiceFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: org.springframework.cloud.function.adapter.aws.FunctionStreamHandler
+      CodeUri: .
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Environment:
+        Variables:
+          AWS_DYNAMODB_ENDPOINT: !ImportValue banking-portfolio-core:DynamoDBTable
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /cards/vcn
+            Method: post
+            RestApiId: !Ref CardServiceApi
+
+  CardServiceApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: Prod
+      Cors:
+        AllowOrigin: "'*'"
+        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization'"
+        AllowMethods: "'POST,OPTIONS'"
+    Name: !Sub "${AWS::StackName}-api"
+
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: DynamoDBAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:*
+                Resource: !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/*!ImportValue banking-portfolio-core:DynamoDBTable*"
+
+Outputs:
+  CardServiceApiUrl:
+    Description: API Gateway endpoint
+    Value: !Sub "https://${CardServiceApi}.execute-api.${AWS::Region}.amazonaws.com/Prod"
+    Export:
+      Name: CardServiceLambdaApiUrl   # Used by EB stack

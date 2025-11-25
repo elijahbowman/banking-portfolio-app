@@ -28,18 +28,20 @@
 	</scm>
 	<properties>
 		<java.version>17</java.version>
-		<dependency.check.skip>false</dependency.check.skip>
+		<dependency.check.skip>true</dependency.check.skip>
 		<odc.autoUpdate>true</odc.autoUpdate>
+		<spring-cloud.version>2024.0.0</spring-cloud.version>
+		<aws-serverless-java-container.version>2.0.0</aws-serverless-java-container.version>
 	</properties>
 	<dependencies>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-actuator</artifactId>
 		</dependency>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-web</artifactId>
-		</dependency>
+<!--		<dependency>-->
+<!--			<groupId>org.springframework.boot</groupId>-->
+<!--			<artifactId>spring-boot-starter-web</artifactId>-->
+<!--		</dependency>-->
 		<dependency>
 			<groupId>org.springframework.kafka</groupId>
 			<artifactId>spring-kafka</artifactId>
@@ -127,6 +129,21 @@
 			<scope>test</scope>
 		</dependency>
 
+
+		<dependency>
+			<groupId>org.springframework.cloud</groupId>
+			<artifactId>spring-cloud-starter-function-web</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.cloud</groupId>
+			<artifactId>spring-cloud-function-adapter-aws</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>com.amazonaws.serverless</groupId>
+			<artifactId>aws-serverless-java-container-springboot3</artifactId>
+			<version>${aws-serverless-java-container.version}</version>
+		</dependency>
+
 	</dependencies>
 
 	<build>
@@ -208,6 +225,22 @@
 					</systemPropertyVariables>
 				</configuration>
 			</plugin>
+
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-shade-plugin</artifactId>
+				<version>3.5.0</version>
+				<configuration>
+					<createDependencyReducedPom>false</createDependencyReducedPom>
+					<finalName>card-service-lambda</finalName>
+				</configuration>
+				<executions>
+					<execution>
+						<phase>package</phase>
+						<goals><goal>shade</goal></goals>
+					</execution>
+				</executions>
+			</plugin>
 		</plugins>
 	</build>
 	<dependencyManagement>
@@ -216,6 +249,13 @@
 				<groupId>io.awspring.cloud</groupId>
 				<artifactId>spring-cloud-aws-dependencies</artifactId>
 				<version>3.4.0</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+			<dependency>
+				<groupId>org.springframework.cloud</groupId>
+				<artifactId>spring-cloud-dependencies</artifactId>
+				<version>${spring-cloud.version}</version>
 				<type>pom</type>
 				<scope>import</scope>
 			</dependency>

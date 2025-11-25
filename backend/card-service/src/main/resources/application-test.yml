@@ -10,6 +10,9 @@ spring:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
 
+  main:
+    web-application-type: none   # Prevents port binding in tests
+
 spring.cloud.aws:
   credentials:
     access-key: test
@@ -21,3 +24,4 @@ spring.cloud.aws:
 
 server:
   port: 0
+
