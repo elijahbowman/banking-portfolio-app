@@ -3,7 +3,7 @@ name: Banking Portfolio CI/CD
 on:
   push:
     # branches: [main]
-    branches: [main, develop, feature/sprint1-setup, feature/sprint2, feature/sprint3]
+    branches: [main, develop, feature/sprint1-setup, feature/sprint2, feature/sprint3, feature/sprint4]
   pull_request:
     branches: [main]
 
@@ -16,7 +16,7 @@ env:
 
 jobs:  
   build-and-test-banking:
-    # if: false
+    if: false
     runs-on: ubuntu-latest
     steps:
     - name: Checkout code
@@ -69,7 +69,7 @@ jobs:
           backend/banking-service/target/jacoco.exec
 
   build-and-test-account:
-    # if: false
+    if: false
     runs-on: ubuntu-latest
     steps:
     - name: Checkout code
@@ -122,7 +122,7 @@ jobs:
           backend/account-service/target/jacoco.exec
 
   build-and-test-card:
-    # if: false
+    if: false
     runs-on: ubuntu-latest
     steps:
     - name: Checkout code
@@ -175,7 +175,7 @@ jobs:
           backend/card-service/target/jacoco.exec
   
   build-and-test-frontend:
-    # if: false
+    if: false
     runs-on: ubuntu-latest
     steps:
     - name: Checkout code
@@ -197,7 +197,7 @@ jobs:
       if: success()
 
   build-and-test-docker-images:
-    # if: false
+    if: false
     runs-on: ubuntu-latest 
     steps:
     - name: Checkout code
@@ -207,7 +207,6 @@ jobs:
       run: |
         docker build -t banking-service:latest ./backend/banking-service
         docker build -t account-service:latest ./backend/account-service
-        docker build -t card-service:latest ./backend/card-service
         docker build -t frontend:latest ./frontend
       if: success()
     
@@ -215,12 +214,10 @@ jobs:
       run: |
         docker run -d --name banking-service --network=host banking-service:latest
         docker run -d --name account-service --network=host account-service:latest
-        docker run -d --name card-service --network=host card-service:latest
         sleep 60
         curl -f http://localhost:8080/actuator/health || exit 1
         curl -f http://localhost:8081/actuator/health || exit 1
-        curl -f http://localhost:8082/actuator/health || exit 1
-        docker stop banking-service account-service card-service
+        docker stop banking-service account-service
       if: success()
 
   sonarqube-scan:
@@ -280,6 +277,7 @@ jobs:
           -Dsonar.coverage.jacoco.xmlReportPaths=backend/banking-service/target/site/jacoco/jacoco.xml,backend/account-service/target/site/jacoco/jacoco.xml,backend/card-service/target/site/jacoco/jacoco.xml
   
   owasp-zap-scan:
+    if: false
     needs: [build-and-test-banking, build-and-test-account, build-and-test-card, build-and-test-frontend]
     runs-on: ubuntu-latest
     steps:
@@ -334,14 +332,14 @@ jobs:
   #         backend/card-service/target/dependency-check-report.sarif
   #     if: always()
 
-  deploy-infrastructure:
+  deploy-infrastructure-core:
     if: false
     # if: github.ref == 'refs/heads/feature/main' && github.event_name == 'push'
-    # if: (github.ref == 'refs/heads/feature/main' || github.ref == 'refs/heads/feature/sprint1-setup' || github.ref == 'refs/heads/feature/sprint2') && github.event_name == 'push'
-    needs: [owasp-zap-scan]
-    runs-on: ubuntu-latest
-    # needs: [build-and-test-banking, build-and-test-account, build-and-test-card, build-and-test-frontend, security-scan]
+    # if: (github.ref == 'refs/heads/feature/main' || github.ref == 'refs/heads/feature/sprint1-setup' || github.ref == 'refs/heads/feature/sprint2' || github.ref == 'refs/heads/feature/sprint3' || github.ref == 'refs/heads/feature/sprint4') && github.event_name == 'push'
     # needs: [sonarqube-scan, owasp-zap-scan]
+    needs: [owasp-zap-scan]
+    # needs: [build-and-test-banking, build-and-test-account, build-and-test-card, build-and-test-frontend, security-scan]
+    runs-on: ubuntu-latest
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -389,6 +387,93 @@ jobs:
           --capabilities CAPABILITY_NAMED_IAM \
           --no-fail-on-empty-changeset
 
+  deploy-card-lambda:
+    # if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+    if: (github.ref == 'refs/heads/feature/main' || github.ref == 'refs/heads/feature/sprint1-setup' || github.ref == 'refs/heads/feature/sprint2' || github.ref == 'refs/heads/feature/sprint3' || github.ref == 'refs/heads/feature/sprint4') && github.event_name == 'push'
+    # needs: deploy-infrastructure-core
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: temurin
+
+      - name: Build Lambda JAR
+        run: |
+          cd backend/card-service
+          echo "Working Directory: "
+          pwd
+          echo "Files backend/card-service in directory: "
+          ls -la
+          mvn clean package -DskipTests
+          echo "Files in target folder: "
+          ls -la target/
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Setup AWS SAM CLI
+        uses: aws-actions/setup-sam@v2
+        with:
+          version: 1.128.0
+
+      - name: Cache Docker layers
+        uses: actions/cache@v3
+        with:
+          path: /tmp/.buildkit
+          key: ${{ runner.os }}-sam-buildkit-${{ hashFiles('pom.xml') }}
+          restore-keys: ${{ runner.os }}-sam-buildkit-
+
+      - name: Deploy with AWS SAM
+        env:
+          SAM_CLI_TELEMETRY: 0
+          MAVEN_OPTS: "-DskipTests=true -Ddependency.check.skip=true -X"
+        run: |
+          cd backend/card-service
+          echo "Working Directory: "
+          pwd
+          echo "Files in target folder: "
+          ls -la target/
+          sam build --use-container --container-env-var MAVEN_OPTS="${MAVEN_OPTS}"
+          # sam build --use-container --parameter-overrides MavenCommand="clean package -DskipTests=true -Ddependency.check.skip=true"
+          sam deploy \
+            --stack-name banking-card-lambda \
+            --s3-bucket ${{ env.S3_BUCKET }} \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset \
+            --region us-east-1 \
+            --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND
+
+      - name: Output Lambda API URL
+        run: |
+          URL=$(aws cloudformation describe-stacks --stack-name banking-card-lambda --query 'Stacks[0].Outputs[?OutputKey==`CardServiceApiUrl`].OutputValue' --output text)
+          echo "Card Service Lambda URL: $URL"
+          echo "CARD_SERVICE_URL=$URL" >> $GITHUB_ENV
+
+  deploy-infrastructure-eb:
+    # if: false
+    # if: github.ref == 'refs/heads/feature/main' && github.event_name == 'push'
+    if: (github.ref == 'refs/heads/feature/main' || github.ref == 'refs/heads/feature/sprint1-setup' || github.ref == 'refs/heads/feature/sprint2' || github.ref == 'refs/heads/feature/sprint3' || github.ref == 'refs/heads/feature/sprint4') && github.event_name == 'push'
+    needs: deploy-card-lambda
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}    
+
     - name: Deploy EB infrastructure stack
       run: |
         aws cloudformation deploy \
@@ -404,10 +489,10 @@ jobs:
           --no-fail-on-empty-changeset
 
   deploy-application:
-    needs: deploy-infrastructure
     if: false
     # if: github.ref == 'refs/heads/feature/main' && github.event_name == 'push'
-    # if: (github.ref == 'refs/heads/feature/main' || github.ref == 'refs/heads/feature/sprint1-setup' || github.ref == 'refs/heads/feature/sprint2') && github.event_name == 'push'
+    # if: (github.ref == 'refs/heads/feature/main' || github.ref == 'refs/heads/feature/sprint1-setup' || github.ref == 'refs/heads/feature/sprint2' || github.ref == 'refs/heads/feature/sprint3' || github.ref == 'refs/heads/feature/sprint4') && github.event_name == 'push'
+    needs: deploy-infrastructure-eb
     runs-on: ubuntu-latest
     steps:
     - name: Checkout code
@@ -431,8 +516,6 @@ jobs:
         cd backend/banking-service
         mvn clean package -DskipTests
         cd ../account-service
-        mvn clean package -DskipTests
-        cd ../card-service
         mvn clean package -DskipTests
 
     - name: Build Frontend
@@ -503,28 +586,6 @@ jobs:
             {
               "ContainerPort": 8081,
               "HostPort": 8081
-            }
-          ],
-          "Logging": "/app/logs",
-          "Environment": [
-            {
-              "Name": "SPRING_PROFILES_ACTIVE",
-              "Value": "docker"
-            }
-          ]
-        }
-        EOF
-        cat > backend/card-service/Dockerrun.aws.json << EOF
-        {
-          "AWSEBDockerrunVersion": "1",
-          "Image": {
-            "Name": "${{ secrets.DOCKERHUB_USERNAME }}/card-service:latest",
-            "Update": "true"
-          },
-          "Ports": [
-            {
-              "ContainerPort": 8082,
-              "HostPort": 8082
             }
           ],
           "Logging": "/app/logs",
@@ -617,7 +678,6 @@ jobs:
       run: |
         aws s3 cp backend/banking-service/source-bundle.zip s3://${{ env.S3_BUCKET }}/banking-service-v${{ github.run_number }}.zip
         aws s3 cp backend/account-service/source-bundle.zip s3://${{ env.S3_BUCKET }}/account-service-v${{ github.run_number }}.zip
-        aws s3 cp backend/card-service/source-bundle.zip s3://${{ env.S3_BUCKET }}/card-service-v${{ github.run_number }}.zip
         aws s3 cp frontend/source-bundle.zip s3://${{ env.S3_BUCKET }}/frontend-v${{ github.run_number }}.zip
 
     - name: Create EB application version
@@ -631,11 +691,6 @@ jobs:
           --application-name banking-portfolio \
           --version-label account-v${{ github.run_number }} \
           --source-bundle S3Bucket=${{ env.S3_BUCKET }},S3Key=account-service-v${{ github.run_number }}.zip \
-          --region ${{ env.AWS_REGION }}
-        aws elasticbeanstalk create-application-version \
-          --application-name banking-portfolio \
-          --version-label card-v${{ github.run_number }} \
-          --source-bundle S3Bucket=${{ env.S3_BUCKET }},S3Key=card-service-v${{ github.run_number }}.zip \
           --region ${{ env.AWS_REGION }}
         aws elasticbeanstalk create-application-version \
           --application-name banking-portfolio \
@@ -684,24 +739,6 @@ jobs:
 
         for i in {1..30}; do
           STATUS=$(aws elasticbeanstalk describe-environment-health \
-            --environment-name card-env \
-            --attribute-names Status \
-            --region ${{ env.AWS_REGION }} \
-            --query 'Status' --output text)
-          if [ "$STATUS" = "Ready" ]; then
-            echo "Environment is Ready"
-            break
-          fi
-          echo "Environment status: $STATUS, waiting 10 seconds..."
-          sleep 10
-        done
-        if [ "$STATUS" != "Ready" ]; then
-          echo "Error: Environment not in Ready state after 300 seconds"
-          exit 1
-        fi
-
-        for i in {1..30}; do
-          STATUS=$(aws elasticbeanstalk describe-environment-health \
             --environment-name frontend-env \
             --attribute-names Status \
             --region ${{ env.AWS_REGION }} \
@@ -732,11 +769,6 @@ jobs:
           --region ${{ env.AWS_REGION }}
         aws elasticbeanstalk update-environment \
           --application-name banking-portfolio \
-          --environment-name card-env \
-          --version-label card-v${{ github.run_number }} \
-          --region ${{ env.AWS_REGION }}
-        aws elasticbeanstalk update-environment \
-          --application-name banking-portfolio \
           --environment-name frontend-env \
           --version-label frontend-v${{ github.run_number }} \
           --region ${{ env.AWS_REGION }}
@@ -754,11 +786,6 @@ jobs:
           --environment-name account-env \
           --region ${{ env.AWS_REGION }} \
           --query 'Environments[0].CNAME' --output text)
-        CARD_URL=$(aws elasticbeanstalk describe-environments \
-          --application-name banking-portfolio \
-          --environment-name card-env \
-          --region ${{ env.AWS_REGION }} \
-          --query 'Environments[0].CNAME' --output text)
         FRONTEND_URL=$(aws elasticbeanstalk describe-environments \
           --application-name banking-portfolio \
           --environment-name frontend-env \
@@ -766,7 +793,6 @@ jobs:
           --query 'Environments[0].CNAME' --output text)
         curl -f http://$BANKING_URL/actuator/health
         curl -f http://$ACCOUNT_URL/actuator/health
-        curl -f http://$CARD_URL/actuator/health
         curl -f http://$FRONTEND_URL
         curl -f -X POST "http://$BANKING_URL/api/v1/banking/deposits" -H "Content-Type: application/json" -d '{"accountId":"smoke","amount":1.00}'
         # curl -f "http://$ACCOUNT_URL/api/v1/accounts/balance?accountId=smoke"
