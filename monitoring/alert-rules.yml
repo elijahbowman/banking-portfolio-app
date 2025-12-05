@@ -1,0 +1,11 @@
+groups:
+- name: banking-alerts
+  rules:
+  - alert: HighDepositLatency
+    expr: histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{job="banking-service", uri="/api/v1/banking/deposits"}[5m])) by (le)) > 1
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High latency on deposits ({{ $value }}s)"
+      description: "P95 latency for /deposits exceeds 1s for 5 minutes."

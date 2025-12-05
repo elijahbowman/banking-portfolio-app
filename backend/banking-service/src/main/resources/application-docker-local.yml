@@ -1,4 +1,6 @@
 spring:
+  application:
+    name: banking-service
   datasource:
     hikari:
       maximum-pool-size: 10
@@ -8,6 +10,8 @@ spring:
     properties:
       hibernate:
         dialect:
+  kafka:
+    bootstrap-servers:
 
   h2:
     console:
@@ -43,3 +47,31 @@ banking:
   account-service-url: http://account-service:8081
   cors:
     allowed-origins: ${FRONTEND_URL:http://localhost,http://localhost:5173}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+      environment: ${spring.profiles.active}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      percentiles:
+        http.server.requests: 0.95,0.99
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: http://zipkin:9411/api/v2/spans

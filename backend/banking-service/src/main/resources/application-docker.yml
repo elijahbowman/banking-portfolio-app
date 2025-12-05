@@ -1,4 +1,6 @@
 spring:
+  application:
+    name: banking-service
   config:
     import: "aws-parameterstore:/banking/rds/;/banking/frontend/"
   datasource:
@@ -57,3 +59,31 @@ banking:
   account-service-url: http://${ACCOUNT_SERVICE_URL}
   cors:
     allowed-origins: ${FRONTEND_URL}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+      environment: ${spring.profiles.active}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      percentiles:
+        http.server.requests: 0.95,0.99
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: http://zipkin:9411/api/v2/spans
