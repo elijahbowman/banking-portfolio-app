@@ -21,7 +21,11 @@ management:
   endpoints:
     web:
       exposure:
-        include: health   # Only this
+        include: health
   endpoint:
     health:
       enabled: true
+
+account:
+  service:
+    url: http://${ACCOUNT_SERVICE_URL:localhost:8081}

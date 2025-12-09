@@ -1,54 +1,94 @@
 package com.portfolio.banking.cardservice.domain.service;
 
-import com.portfolio.banking.cardservice.domain.entity.Card;
+import com.portfolio.banking.cardservice.client.AccountClient;
+import com.portfolio.banking.cardservice.domain.entity.RealCard;
+import com.portfolio.banking.cardservice.domain.entity.VirtualCardToken;
 import com.portfolio.banking.cardservice.repository.CardRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class CardService {
 
-    private final CardRepository cardRepository;
-    private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final AccountClient accountClient;
+    private final CardRepository repository;
+    private static final SecureRandom random = new SecureRandom();
 
-    public Card issueVCN(String accountId, BigDecimal limit) {
+    public VirtualCardToken issueVCN(String realCardId, BigDecimal limit) {
         if (limit.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Limit must be positive");
         }
 
-        Card card = new Card();
-        card.setCardId(UUID.randomUUID().toString());
-        card.setAccountId(accountId);
-        card.setUsageLimit(limit);
-        card.setVcn(generateVCN());
-        card.setExpiresAt(LocalDateTime.now().plusMonths(1));
+        RealCard realCard = repository.findRealCardById(realCardId)
+                .orElseThrow(() -> new IllegalArgumentException("Real card not found: " + realCardId));
 
-        cardRepository.save(card);
+        if (!"ACTIVE".equals(realCard.getStatus())) {
+            throw new IllegalStateException("Card is not active");
+        }
 
-        // Publish event to Kafka for Lambda trigger
-        Map<String, Object> event = new HashMap<>();
-        event.put("eventType", "VCN_ISSUED");
-        event.put("cardId", card.getCardId());
-        event.put("accountId", card.getAccountId());
-        event.put("vcn", card.getVcn());
-        event.put("usageLimit", card.getUsageLimit().toString());
-        event.put("createdAt", card.getCreatedAt().toString());
-        event.put("expiresAt", card.getExpiresAt().toString());
-        kafkaTemplate.send("vcn-events", card.getCardId(), event);
+        BigDecimal availableBalance = accountClient.getBalance(realCard.getAccountId());
 
-        return card;
+        if (limit.compareTo(availableBalance) > 0) {
+            throw new IllegalStateException("Insufficient funds");
+        }
+
+        String vcn = generateLuhnValidVCN();
+        VirtualCardToken token = VirtualCardToken.builder()
+                .tokenId("VCN#" + UUID.randomUUID())
+                .realCardId(realCardId)
+                .vcn(vcn)
+                .spendLimit(limit)
+                .expiresAt(LocalDateTime.now().plusDays(30))
+                .createdAt(LocalDateTime.now())
+                .status("ACTIVE")
+                .build();
+
+        repository.saveToken(token);
+        return token;
     }
 
-    private String generateVCN() {
-        // Simple demo generation; in production, use secure method
-        return "VCN-" + UUID.randomUUID().toString().substring(0, 8);
+    private String generateLuhnValidVCN() {
+        String bin = "453212"; // Configurable in real app
+        StringBuilder number = new StringBuilder(bin);
+        for (int i = 0; i < 9; i++) {
+            number.append(random.nextInt(10));
+        }
+        number.append(calculateLuhnCheckDigit(number.toString()));
+        return formatCardNumber(number.toString());
+    }
+
+    private int calculateLuhnCheckDigit(String number) {
+        int sum = 0;
+        boolean doubleIt = true;  // 2nd from right
+        for (int i = number.length() - 1; i >= 0; i--) {
+            int digit = Character.getNumericValue(number.charAt(i));
+            if (doubleIt) {
+                digit *= 2;
+                if (digit > 9) digit -= 9;
+            }
+            sum += digit;
+            doubleIt = !doubleIt;
+        }
+        return (10 - (sum % 10)) % 10;
+    }
+
+    private String formatCardNumber(String number) {
+        return number.replaceAll(".{4}", "$0 ").trim();
+    }
+
+    public Optional<RealCard> getRealCard(String realCardId) {
+        return repository.findRealCardById(realCardId);
+    }
+
+    public List<VirtualCardToken> getVCNsForRealCard(String realCardId) {
+        return repository.findTokensByRealCard(realCardId).toList();
     }
 }

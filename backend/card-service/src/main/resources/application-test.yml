@@ -12,6 +12,7 @@ spring:
 
   main:
     web-application-type: none   # Prevents port binding in tests
+    allow-bean-definition-overriding: true
 
 spring.cloud.aws:
   credentials:
@@ -24,4 +25,10 @@ spring.cloud.aws:
 
 server:
   port: 0
+
+account:
+  service:
+    url: http://${ACCOUNT_SERVICE_URL:localhost:8081}
+
+
 

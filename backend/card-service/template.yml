@@ -24,11 +24,23 @@ Resources:
         Variables:
           AWS_DYNAMODB_ENDPOINT: !ImportValue banking-portfolio-core:DynamoDBTable
       Events:
-        ApiEvent:
+        IssueVCN:
           Type: Api
           Properties:
             Path: /cards/vcn
             Method: post
+            RestApiId: !Ref CardServiceApi
+        GetRealCard:
+          Type: Api
+          Properties:
+            Path: /cards/real
+            Method: get
+            RestApiId: !Ref CardServiceApi
+        GetVCNs:
+          Type: Api
+          Properties:
+            Path: /cards/vcns
+            Method: get
             RestApiId: !Ref CardServiceApi
 
   CardServiceApi:
@@ -38,7 +50,7 @@ Resources:
       Cors:
         AllowOrigin: "'*'"
         AllowHeaders: "'Content-Type,X-Amz-Date,Authorization'"
-        AllowMethods: "'POST,OPTIONS'"
+        AllowMethods: "'GET,POST,OPTIONS'"
     Name: !Sub "${AWS::StackName}-api"
 
   LambdaExecutionRole:

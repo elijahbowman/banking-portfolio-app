@@ -1,26 +1,64 @@
 package com.portfolio.banking.cardservice.repository;
 
-import com.portfolio.banking.cardservice.domain.entity.Card;
+import com.portfolio.banking.cardservice.domain.entity.RealCard;
+import com.portfolio.banking.cardservice.domain.entity.VirtualCardToken;
 import org.springframework.stereotype.Repository;
-import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
-import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable;
-import software.amazon.awssdk.enhanced.dynamodb.Key;
-import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
+import software.amazon.awssdk.enhanced.dynamodb.*;
+import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional;
+
+import java.util.Optional;
+import java.util.stream.Stream;
 
 @Repository
 public class CardRepository {
 
-    private final DynamoDbTable<Card> cardTable;
+    private final DynamoDbTable<RealCard> realCardTable;
+    private final DynamoDbTable<VirtualCardToken> tokenTable;
+    private final DynamoDbIndex<VirtualCardToken> realCardIdIndex;
 
     public CardRepository(DynamoDbEnhancedClient enhancedClient) {
-        this.cardTable = enhancedClient.table("Cards", TableSchema.fromBean(Card.class));
+
+        this.realCardTable =
+                enhancedClient.table("Cards", TableSchema.fromBean(RealCard.class));
+
+        this.tokenTable =
+                enhancedClient.table("VirtualCardTokens", TableSchema.fromBean(VirtualCardToken.class));
+
+        this.realCardIdIndex =
+                enhancedClient.table("VirtualCardTokens", TableSchema.fromBean(VirtualCardToken.class))
+                        .index("RealCardIdIndex");
     }
 
-    public void save(Card card) {
-        cardTable.putItem(card);
+    public void saveRealCard(RealCard card) {
+        realCardTable.putItem(card);
     }
 
-    public Card findById(String cardId) {
-        return cardTable.getItem(Key.builder().partitionValue(cardId).build());
+    public Optional<RealCard> findRealCardById(String cardId) {
+        return Optional.ofNullable(
+                realCardTable.getItem(Key.builder().partitionValue(cardId).build())
+        );
+    }
+
+    public Optional<RealCard> findRealCardByAccountId(String accountId) {
+        return Optional.ofNullable(
+                realCardTable.getItem(Key.builder().partitionValue("REAL#" + accountId).build())
+        );
+    }
+
+    public void saveToken(VirtualCardToken token) {
+        tokenTable.putItem(token);
+    }
+
+    public Optional<VirtualCardToken> findTokenById(String tokenId) {
+        return Optional.ofNullable(
+                tokenTable.getItem(Key.builder().partitionValue(tokenId).build())
+        );
+    }
+
+    public Stream<VirtualCardToken> findTokensByRealCard(String realCardId) {
+        return realCardIdIndex.query(r -> r
+                        .queryConditional(QueryConditional.keyEqualTo(k -> k.partitionValue(realCardId)))
+                ).stream()
+                .flatMap(page -> page.items().stream());
     }
 }
