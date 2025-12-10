@@ -83,3 +83,27 @@ export const transfer = async (data: TransactionRequest): Promise<TransactionRes
     const api = await getApi();
     return api.post('/transfers', data).then(r => r.data)
 }
+
+export const issueVCN = async (realCardId: string, limit: number) => {
+    const api = await getApi();
+  const response = await api.post('/cards/vcn', null, {
+    params: { realCardId, limit },
+  });
+  return response.data;
+};
+
+export const getRealCard = async (accountId: string) => {
+    const api = await getApi();
+  const response = await api.get('/cards/real', {
+    params: { accountId },
+  });
+  return response.data;
+};
+
+export const getVCNs = async (realCardId: string) => {
+    const api = await getApi();
+  const response = await api.get('/cards/vcns', {
+    params: { realCardId },
+  });
+  return response.data;
+};

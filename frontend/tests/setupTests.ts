@@ -59,6 +59,51 @@ const handlers = [
         console.warn('Unhandled API request:', request.method, request.url)
         return new HttpResponse(null, { status: 404 })
     }),
+    
+    http.get('*/cards/real', ({ request }) => {
+        const url = new URL(request.url);
+        const accountId = url.searchParams.get('accountId');
+        if (accountId === 'acc123') {
+        return HttpResponse.json({
+            cardId: 'REAL#acc123',
+            accountId: 'acc123',
+            cardNumber: '4532123456789012',
+            cardHolderName: 'JOHN DOE',
+            expiryDate: '12/28',
+            status: 'ACTIVE',
+        });
+        }
+        return new HttpResponse(null, { status: 404 });
+    }),
+
+    http.get('*/cards/vcns', ({ request }) => {
+        const url = new URL(request.url);
+        const realCardId = url.searchParams.get('realCardId');
+        if (realCardId === 'REAL#acc123') {
+        return HttpResponse.json([
+            {
+            tokenId: 'VCN#1',
+            realCardId: 'REAL#acc123',
+            vcn: '4532 1234 5678 9012',
+            spendLimit: 500,
+            expiresAt: new Date().toISOString(),
+            status: 'ACTIVE',
+            },
+        ]);
+        }
+        return HttpResponse.json([]);
+    }),
+
+    http.post('*/cards/vcn', () => {
+        return HttpResponse.json({
+        tokenId: 'VCN#new',
+        realCardId: 'REAL#acc123',
+        vcn: '4532 9876 5432 1098',
+        spendLimit: 750,
+        expiresAt: new Date().toISOString(),
+        status: 'ACTIVE',
+        });
+    }),
 ]
 
 export const server = setupServer(...handlers)
