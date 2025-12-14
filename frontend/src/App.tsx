@@ -3,7 +3,6 @@ import DepositForm from './components/DepositForm'
 import WithdrawalForm from './components/WithdrawalForm'
 import TransferForm from './components/TransferForm'
 import CardDashboard from './components/CardDashboard';
-import React, { useState } from 'react';
 
 export default function App() {
   return (

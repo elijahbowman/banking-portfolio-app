@@ -23,10 +23,10 @@ public class IssueVCNFunction {
     @Bean
     public Function<Message<Map<String, Object>>, Message<VirtualCardToken>> issueVCN() {
         return message -> {
-            Map<String, Object> headers = message.getHeaders();
+            Map<String, Object> payload = message.getPayload();
 
             @SuppressWarnings("unchecked")
-            Map<String, String> queryParams = (Map<String, String>) headers.get("queryStringParameters");
+            Map<String, String> queryParams = (Map<String, String>) payload.get("queryStringParameters");
 
             String realCardId = queryParams.get("realCardId");
             String limitStr = queryParams.get("limit");
@@ -48,9 +48,9 @@ public class IssueVCNFunction {
     @Bean
     public Function<Message<Map<String, Object>>, Message<RealCard>> getRealCard() {
         return message -> {
-            Map<String, Object> headers = message.getHeaders();
+            Map<String, Object> payload = message.getPayload();
             @SuppressWarnings("unchecked")
-            Map<String, String> queryParams = (Map<String, String>) headers.get("queryStringParameters");
+            Map<String, String> queryParams = (Map<String, String>) payload.get("queryStringParameters");
 
             String accountId = queryParams.get("accountId");
             if (accountId == null) {
@@ -68,9 +68,9 @@ public class IssueVCNFunction {
     @Bean
     public Function<Message<Map<String, Object>>, Message<List<VirtualCardToken>>> getVCNs() {
         return message -> {
-            Map<String, Object> headers = message.getHeaders();
+            Map<String, Object> payload = message.getPayload();
             @SuppressWarnings("unchecked")
-            Map<String, String> queryParams = (Map<String, String>) headers.get("queryStringParameters");
+            Map<String, String> queryParams = (Map<String, String>) payload.get("queryStringParameters");
 
             String realCardId = queryParams.get("realCardId");
             if (realCardId == null) {
@@ -80,6 +80,26 @@ public class IssueVCNFunction {
             List<VirtualCardToken> tokens = cardService.getVCNsForRealCard(realCardId);
 
             return MessageBuilder.withPayload(tokens).setHeader("Content-Type", "application/json").build();
+        };
+    }
+
+    @Bean
+    public Function<Message<Map<String, Object>>, Message<?>> lambdaRouter() {
+        return message -> {
+            Map<String, Object> payload = message.getPayload();
+            @SuppressWarnings("unchecked")
+            Map<String, Object> requestContext = (Map<String, Object>) payload.get("requestContext");
+            String path = (String) requestContext.get("path");
+
+            if (path.endsWith("/cards/real")) {
+                return getRealCard().apply(message);
+            } else if (path.endsWith("/cards/vcns")) {
+                return getVCNs().apply(message);
+            } else if (path.endsWith("/cards/vcn")) {
+                return issueVCN().apply(message);
+            }
+
+            throw new IllegalArgumentException("Unknown endpoint: " + path);
         };
     }
 }

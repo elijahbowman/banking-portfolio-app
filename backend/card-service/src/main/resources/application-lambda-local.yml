@@ -1,0 +1,32 @@
+spring:
+  main:
+    banner-mode: off
+  autoconfigure:
+    exclude: org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:host.docker.internal:9092}
+#  cloud:
+#    function:
+#      definition: lambdaRouter
+
+spring.cloud.aws:
+  dynamodb:
+    endpoint: http://host.docker.internal:4566  # ← LocalStack
+  credentials:
+    access-key: test
+    secret-key: test
+  region:
+    static: us-east-1
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      enabled: true
+
+account:
+  service:
+    url: http://${ACCOUNT_SERVICE_URL:host.docker.internal:8081}

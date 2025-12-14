@@ -1,7 +1,7 @@
 // frontend/tests/components/CardDashboard.test.tsx
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { Provider } from 'react-redux';
 import { store } from '../../src/store/store';
 import CardDashboard from '../../src/components/CardDashboard';
@@ -75,7 +75,7 @@ describe('CardDashboard', () => {
 
     await waitFor(() => {
     expect(screen.getByText('Failed to fetch real card', {
-      selector: '.text-red-600.text-center.bg-red-50'
+      selector: '.text-red-700.text-center.bg-red-50'
     })).toBeInTheDocument();
   });
   });

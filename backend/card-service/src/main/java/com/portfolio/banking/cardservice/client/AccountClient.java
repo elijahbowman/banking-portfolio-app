@@ -11,5 +11,5 @@ import java.math.BigDecimal;
 public interface AccountClient {
 
     @GetMapping("/api/v1/accounts/balance")
-    BigDecimal getBalance(@RequestBody String accountId);
+    AccountBalanceResponse getBalance(@RequestParam String accountId);
 }

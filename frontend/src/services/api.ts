@@ -24,6 +24,9 @@ const loadConfig = async (): Promise<RuntimeConfig> => {
         if (!config.BANKING_SERVICE_URL) {
             throw new Error('BANKING_SERVICE_URL is not set');
         }
+        if (!config.CARD_SERVICE_URL) {
+            throw new Error('CARD_SERVICE_URL is not set');
+        }
         return config;
     }
     
@@ -37,7 +40,11 @@ const loadConfig = async (): Promise<RuntimeConfig> => {
         if (!config.BANKING_SERVICE_URL) {
             throw new Error('BANKING_SERVICE_URL is not set');
         }
+        if (!config.CARD_SERVICE_URL) {
+            throw new Error('CARD_SERVICE_URL is not set');
+        }
         config.BANKING_SERVICE_URL = prependHttpPrefixIfMissing(config.BANKING_SERVICE_URL);
+        config.CARD_SERVICE_URL = prependHttpPrefixIfMissing(config.CARD_SERVICE_URL);
         return config;
     } catch (error) {
         console.error('loadConfig error:', error);
@@ -45,47 +52,66 @@ const loadConfig = async (): Promise<RuntimeConfig> => {
     }
 };
 
-let apiInstance: ReturnType<typeof axios.create> | null = null;
+let bankingApiInstance: ReturnType<typeof axios.create> | null = null;
 
-export const getApi = async () => {
-    if (!apiInstance) {
+export const getBankingApi = async () => {
+    if (!bankingApiInstance) {
         try {
             const config = await loadConfig();
             console.log('Config loaded:', config);
-            apiInstance = axios.create({
+            bankingApiInstance = axios.create({
                 baseURL: `${config.BANKING_SERVICE_URL}/api/v1/banking`,
             });
-            // console.log('API baseURL:', apiInstance.getUri());
+            // console.log('Banking API baseURL:', bankingApiInstance.getUri());
         } catch (error) {
-            console.error('getApi error:', error);
+            console.error('getBankingApi error:', error);
             throw error;
         }
     }
-    return apiInstance;
+    return bankingApiInstance;
+};
+
+let cardApiInstance: ReturnType<typeof axios.create> | null = null;
+
+export const getCardApi = async () => {
+    if (!cardApiInstance) {
+        try {
+            const config = await loadConfig();
+            console.log('Config loaded:', config);
+            cardApiInstance = axios.create({
+                baseURL: `${config.CARD_SERVICE_URL}/`,
+            });
+            // console.log('Card API baseURL:', cardApiInstance.getUri());
+        } catch (error) {
+            console.error('getCardApi error:', error);
+            throw error;
+        }
+    }
+    return cardApiInstance;
 };
 
 export const getBalance = async (accountId: string): Promise<BalanceResponse> => {
-    const api = await getApi();
+    const api = await getBankingApi();
     return api.get(`/accounts/${accountId}/balance`).then(r => r.data)
 }
 
 export const deposit = async (data: TransactionRequest): Promise<TransactionResponse> => {
-    const api = await getApi();
+    const api = await getBankingApi();
     return api.post('/deposits', data).then(r => r.data)
 }
 
 export const withdraw = async (data: TransactionRequest): Promise<TransactionResponse> => {
-    const api = await getApi();
+    const api = await getBankingApi();
     return api.post('/withdrawals', data).then(r => r.data)
 }
 
 export const transfer = async (data: TransactionRequest): Promise<TransactionResponse> => {
-    const api = await getApi();
+    const api = await getBankingApi();
     return api.post('/transfers', data).then(r => r.data)
 }
 
 export const issueVCN = async (realCardId: string, limit: number) => {
-    const api = await getApi();
+    const api = await getCardApi();
   const response = await api.post('/cards/vcn', null, {
     params: { realCardId, limit },
   });
@@ -93,7 +119,7 @@ export const issueVCN = async (realCardId: string, limit: number) => {
 };
 
 export const getRealCard = async (accountId: string) => {
-    const api = await getApi();
+    const api = await getCardApi();
   const response = await api.get('/cards/real', {
     params: { accountId },
   });
@@ -101,7 +127,7 @@ export const getRealCard = async (accountId: string) => {
 };
 
 export const getVCNs = async (realCardId: string) => {
-    const api = await getApi();
+    const api = await getCardApi();
   const response = await api.get('/cards/vcns', {
     params: { realCardId },
   });

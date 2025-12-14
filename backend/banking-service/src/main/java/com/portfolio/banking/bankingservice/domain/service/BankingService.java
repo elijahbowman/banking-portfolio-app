@@ -202,7 +202,17 @@ public class BankingService {
         newAccount.setBalance(BigDecimal.ZERO);
         newAccount.setCreatedAt(LocalDateTime.now());
 
-        return accountRepository.save(newAccount);
+        newAccount = accountRepository.save(newAccount);
+
+        Map<String, Object> event = new HashMap<>();
+        event.put("eventType", "ACCOUNT_CREATED");
+        event.put("accountId", accountId);
+        event.put("customerName", newAccount.getCustomerName());
+
+        kafkaTemplate.send("account-created", accountId, event);
+        log.info("Published account-created event: {}", event);
+
+        return newAccount;
     }
 
     private String generateAccountNumber(String accountId) {

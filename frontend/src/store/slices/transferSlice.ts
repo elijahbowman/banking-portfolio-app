@@ -1,7 +1,7 @@
 // frontend/src/store/slices/transferSlice.ts
 import { createSlice, createAsyncThunk, type PayloadAction } from '@reduxjs/toolkit';
 import { type TransactionRequest } from '../../types';
-import { getApi } from '../../services/api';
+import { getBankingApi } from '../../services/api';
 
 export interface TransferState {
     status: 'idle' | 'loading' | 'succeeded' | 'failed';
@@ -15,7 +15,7 @@ const initialState: TransferState = {
     error: null,
 };
 
-const api = await getApi();
+const api = await getBankingApi();
 
 export const makeTransfer = createAsyncThunk(
   'transfers/makeTransfer',

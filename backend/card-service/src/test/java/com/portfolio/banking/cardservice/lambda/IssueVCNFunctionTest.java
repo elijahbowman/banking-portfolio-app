@@ -1,6 +1,7 @@
 package com.portfolio.banking.cardservice.lambda;
 
 import com.portfolio.banking.cardservice.TestcontainersConfiguration;
+import com.portfolio.banking.cardservice.client.AccountBalanceResponse;
 import com.portfolio.banking.cardservice.client.AccountClient;
 import com.portfolio.banking.cardservice.domain.entity.RealCard;
 import com.portfolio.banking.cardservice.domain.entity.VirtualCardToken;
@@ -82,7 +83,7 @@ class IssueVCNFunctionTest {
                 .build();
         repository.saveRealCard(realCard);
 
-        when(accountClient.getBalance(accountId)).thenReturn(BigDecimal.valueOf(1000));
+        when(accountClient.getBalance(accountId)).thenReturn(new AccountBalanceResponse(BigDecimal.valueOf(1000), accountId));
 
         Map<String, String> queryParams = Map.of(
                 "realCardId", "REAL#acc123",
@@ -90,11 +91,11 @@ class IssueVCNFunctionTest {
         );
 
         // Build headers as Map<String, Object>
-        Map<String, Object> headers = Map.of("queryStringParameters", queryParams);
+        Map<String, Object> payload = Map.of("queryStringParameters", queryParams);
 
         Message<Map<String, Object>> message = new GenericMessage<>(
-                Map.of(),  // payload
-                headers    // headers
+                payload,   // payload
+                Map.of()   // headers
         );
 
         Function<Message<Map<String, Object>>, Message<VirtualCardToken>> function =
@@ -121,18 +122,15 @@ class IssueVCNFunctionTest {
                 .build();
         repository.saveRealCard(realCard);
 
-        when(accountClient.getBalance(accountId)).thenReturn(BigDecimal.valueOf(1000));
+        when(accountClient.getBalance(accountId)).thenReturn(new AccountBalanceResponse(BigDecimal.valueOf(1000), accountId));
 
-        Map<String, String> queryParams = Map.of(
+        Object queryParams = Map.of(
                 "realCardId", "REAL#acc123",
                 "limit", "500"
         );
 
-        Map<String, Object> payloadMap = Map.of();
-
         Message<Map<String, Object>> message = MessageBuilder
-                .withPayload(payloadMap)
-                .copyHeaders(Map.of("queryStringParameters", queryParams))
+                .withPayload(Map.of("queryStringParameters", queryParams))
                 .build();
 
         Function<Message<Map<String, Object>>, Message<VirtualCardToken>> function =
@@ -157,13 +155,10 @@ class IssueVCNFunctionTest {
 
         repository.saveRealCard(expectedCard);
 
-        Map<String, String> queryParams = Map.of("accountId", accountId);
-
-        Map<String, Object> payloadMap = Map.of();
+        Object queryParams = Map.of("accountId", accountId);
 
         Message<Map<String, Object>> message = MessageBuilder
-                .withPayload(payloadMap)
-                .copyHeaders(Map.of("queryStringParameters", queryParams))
+                .withPayload(Map.of("queryStringParameters", queryParams))
                 .build();
 
         Function<Message<Map<String, Object>>, Message<RealCard>> function = catalog.lookup(Function.class, "getRealCard");
@@ -200,13 +195,10 @@ class IssueVCNFunctionTest {
         repository.saveToken(token1);
         repository.saveToken(token2);
 
-        Map<String, String> queryParams = Map.of("realCardId", realCardId);
-
-        Map<String, Object> payloadMap = Map.of();
+        Object queryParams = Map.of("realCardId", realCardId);
 
         Message<Map<String, Object>> message = MessageBuilder
-                .withPayload(payloadMap)
-                .copyHeaders(Map.of("queryStringParameters", queryParams))
+                .withPayload(Map.of("queryStringParameters", queryParams))
                 .build();
 
         Function<Message<Map<String, Object>>, Message<List<VirtualCardToken>>> function = catalog.lookup(Function.class, "getVCNs");

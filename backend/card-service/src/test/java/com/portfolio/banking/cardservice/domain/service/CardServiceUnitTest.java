@@ -1,5 +1,6 @@
 package com.portfolio.banking.cardservice.domain.service;
 
+import com.portfolio.banking.cardservice.client.AccountBalanceResponse;
 import com.portfolio.banking.cardservice.client.AccountClient;
 import com.portfolio.banking.cardservice.domain.entity.RealCard;
 import com.portfolio.banking.cardservice.domain.entity.VirtualCardToken;
@@ -39,7 +40,7 @@ class CardServiceUnitTest {
                 .build();
 
         when(repository.findRealCardById(realCardId)).thenReturn(Optional.of(realCard));
-        when(accountClient.getBalance(accountId)).thenReturn(BigDecimal.valueOf(1000));
+        when(accountClient.getBalance(accountId)).thenReturn(new AccountBalanceResponse(BigDecimal.valueOf(1000), accountId));
 
         VirtualCardToken token = service.issueVCN(realCardId, BigDecimal.valueOf(500));
 
@@ -69,7 +70,7 @@ class CardServiceUnitTest {
                 .build();
 
         when(repository.findRealCardById(realCardId)).thenReturn(Optional.of(realCard));
-        when(accountClient.getBalance(accountId)).thenReturn(BigDecimal.valueOf(400));
+        when(accountClient.getBalance(accountId)).thenReturn(new AccountBalanceResponse(BigDecimal.valueOf(400), accountId));
 
         assertThrows(IllegalStateException.class,
                 () -> service.issueVCN(realCardId, BigDecimal.valueOf(500)));

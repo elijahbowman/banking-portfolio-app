@@ -1,6 +1,7 @@
 package com.portfolio.banking.cardservice.domain.service;
 
 import com.portfolio.banking.cardservice.TestcontainersConfiguration;
+import com.portfolio.banking.cardservice.client.AccountBalanceResponse;
 import com.portfolio.banking.cardservice.client.AccountClient;
 import com.portfolio.banking.cardservice.domain.entity.RealCard;
 import com.portfolio.banking.cardservice.domain.entity.VirtualCardToken;
@@ -71,7 +72,7 @@ class CardServiceIntegrationTest {
     @Test
     void endToEndVCNIssuance() {
         String accountId = "acc123";
-        when(accountClient.getBalance(accountId)).thenReturn(BigDecimal.valueOf(1000));
+        when(accountClient.getBalance(accountId)).thenReturn(new AccountBalanceResponse(BigDecimal.valueOf(1000), accountId));
 
         RealCard realCard = RealCard.builder()
                 .cardId("REAL#acc123")

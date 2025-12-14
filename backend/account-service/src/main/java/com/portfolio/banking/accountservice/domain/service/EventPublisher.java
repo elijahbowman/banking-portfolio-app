@@ -46,4 +46,13 @@ public class EventPublisher {
         kafkaTemplate.send("rollback-events", transactionId, event);
         log.info("Published rollback event: {}", event);
     }
+
+//    public void publishAccountCreatedEvent(String accountId) {
+//        Map<String, Object> event = new HashMap<>();
+//        event.put("eventType", "ACCOUNT_CREATED");
+//        event.put("accountId", accountId);
+//
+//        kafkaTemplate.send("account-created", accountId, event);
+//        log.info("Published account-created event: {}", event);
+//    }
 }

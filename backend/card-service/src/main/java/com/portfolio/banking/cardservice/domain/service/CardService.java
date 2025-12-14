@@ -34,7 +34,7 @@ public class CardService {
             throw new IllegalStateException("Card is not active");
         }
 
-        BigDecimal availableBalance = accountClient.getBalance(realCard.getAccountId());
+        BigDecimal availableBalance = accountClient.getBalance(realCard.getAccountId()).balance();
 
         if (limit.compareTo(availableBalance) > 0) {
             throw new IllegalStateException("Insufficient funds");
@@ -86,6 +86,9 @@ public class CardService {
 
     public Optional<RealCard> getRealCard(String realCardId) {
         return repository.findRealCardById(realCardId);
+    }
+    public Optional<RealCard> getRealCardByAccountID(String accountId) {
+        return repository.findRealCardByAccountId(accountId);
     }
 
     public List<VirtualCardToken> getVCNsForRealCard(String realCardId) {

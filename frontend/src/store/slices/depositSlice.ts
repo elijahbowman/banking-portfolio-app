@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { type TransactionRequest } from '../../types';
-import { getApi } from '../../services/api';
+import { getBankingApi } from '../../services/api';
 
 interface DepositState {
     status: 'idle' | 'loading' | 'succeeded' | 'failed';
@@ -14,7 +14,7 @@ const initialState: DepositState = {
     error: null,
 };
 
-const api = await getApi();
+const api = await getBankingApi();
 
 export const makeDeposit = createAsyncThunk(
     'deposits/makeDeposit',

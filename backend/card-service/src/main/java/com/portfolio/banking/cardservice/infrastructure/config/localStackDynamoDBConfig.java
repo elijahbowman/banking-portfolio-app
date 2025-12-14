@@ -2,17 +2,29 @@ package com.portfolio.banking.cardservice.infrastructure.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Profile;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
+import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 
+import java.net.URI;
+
 @Configuration
-@Profile("lambda")
-public class DynamoDBConfig {
+@Profile("lambda-local")
+public class localStackDynamoDBConfig {
 
     @Bean
+    @Primary
     public DynamoDbClient dynamoDbClient() {
-        return DynamoDbClient.builder().build();
+        return DynamoDbClient.builder()
+                .endpointOverride(URI.create("http://host.docker.internal:4566"))
+                .credentialsProvider(StaticCredentialsProvider.create(
+                        AwsBasicCredentials.create("test", "test")))
+                .region(Region.US_EAST_1)
+                .build();
     }
 
     @Bean
