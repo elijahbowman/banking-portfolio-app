@@ -4,7 +4,9 @@ import { getRealCard, getVCNs, issueVCN } from '../../services/api';
 interface CardState {
   realCard: RealCard | null;
   vcns: VirtualCardToken[];
-  status: 'idle' | 'loading' | 'succeeded' | 'failed';
+  realCardStatus: 'idle' | 'loading' | 'succeeded' | 'failed';
+  vcnsStatus: 'idle' | 'loading' | 'succeeded' | 'failed';
+  createVCNStatus: 'idle' | 'loading' | 'succeeded' | 'failed';
   error: string | null;
 }
 
@@ -30,7 +32,9 @@ interface VirtualCardToken {
 const initialState: CardState = {
   realCard: null,
   vcns: [],
-  status: 'idle',
+  realCardStatus: 'idle',
+  vcnsStatus: 'idle',
+  createVCNStatus: 'idle',
   error: null,
 };
 
@@ -74,43 +78,55 @@ const cardSlice = createSlice({
     resetCard: (state) => {
       state.realCard = null;
       state.vcns = [];
-      state.status = 'idle';
+      state.realCardStatus = 'idle';
+      state.vcnsStatus = 'idle',
+      state.createVCNStatus = 'idle',
       state.error = null;
     },
   },
   extraReducers: (builder) => {
     builder
       .addCase(fetchRealCard.pending, (state) => {
-        state.status = 'loading';
+        state.error = null;
+        state.vcns = [];
+        state.realCard = null;
+        state.vcnsStatus = 'idle',
+        state.createVCNStatus = 'idle',
+        state.realCardStatus = 'loading';
       })
       .addCase(fetchRealCard.fulfilled, (state, action) => {
-        state.status = 'succeeded';
+        state.realCardStatus = 'succeeded';
+        state.error = null;
         state.realCard = action.payload;
       })
       .addCase(fetchRealCard.rejected, (state, action) => {
-        state.status = 'failed';
+        state.realCardStatus = 'failed';
         state.error = action.payload as string;
       })
       .addCase(fetchVCNs.pending, (state) => {
-        state.status = 'loading';
+        state.error = null;
+        state.vcnsStatus = 'loading';
       })
       .addCase(fetchVCNs.fulfilled, (state, action) => {
-        state.status = 'succeeded';
+        state.error = null;
+        state.vcnsStatus = 'succeeded';
         state.vcns = action.payload;
       })
       .addCase(fetchVCNs.rejected, (state, action) => {
-        state.status = 'failed';
+        state.vcnsStatus = 'failed';
         state.error = action.payload as string;
       })
       .addCase(createVCN.pending, (state) => {
-        state.status = 'loading';
+        state.error = null;
+        state.createVCNStatus = 'loading';
       })
       .addCase(createVCN.fulfilled, (state, action) => {
-        state.status = 'succeeded';
+        state.error = null;
+        state.createVCNStatus = 'succeeded';
         state.vcns = [...state.vcns, action.payload];
       })
       .addCase(createVCN.rejected, (state, action) => {
-        state.status = 'failed';
+        state.createVCNStatus = 'failed';
         state.error = action.payload as string;
       });
   },

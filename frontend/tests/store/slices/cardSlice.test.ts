@@ -47,7 +47,7 @@ describe('cardSlice', () => {
         await store.dispatch(fetchRealCard('acc123'));
         const state = store.getState().card;
         expect(state.realCard?.cardId).toBe('REAL#acc123');
-        expect(state.status).toBe('succeeded');
+        expect(state.realCardStatus).toBe('succeeded');
     });
 
     it('fetches VCNs', async () => {

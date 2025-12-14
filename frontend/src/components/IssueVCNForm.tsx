@@ -6,7 +6,7 @@ import { type RootState } from '../store/store';
 export default function IssueVCNForm({ realCardId }: { realCardId: string }) {
   const [limit, setLimit] = useState('');
   const dispatch = useAppDispatch();
-  const { status, error } = useAppSelector((state: RootState) => state.card);
+  const { createVCNStatus: status, error } = useAppSelector((state: RootState) => state.card);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

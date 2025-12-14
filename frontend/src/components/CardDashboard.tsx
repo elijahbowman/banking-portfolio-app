@@ -8,7 +8,7 @@ export default function CardDashboard() {
     const [accountId, setAccountId] = useState('');
   const [submittedId, setSubmittedId] = useState('');
   const dispatch = useAppDispatch();
-  const { realCard, vcns, status, error } = useAppSelector((state: RootState) => state.card);
+  const { realCard, vcns, realCardStatus, vcnsStatus, error } = useAppSelector((state: RootState) => state.card);
   const [loading, setLoading] = useState(false)
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -60,7 +60,7 @@ export default function CardDashboard() {
       {/* Results */}
       {submittedId && (
         <>
-          {status === 'loading' && (
+          {realCardStatus === 'loading' && (
             <p className="text-center text-gray-600">Loading card details...</p>
           )}
 
@@ -95,7 +95,8 @@ export default function CardDashboard() {
 
               {/* Virtual Cards */}
               <h3 className="text-xl font-bold mb-4">Virtual Cards</h3>
-              {vcns.length > 0 ? (
+              {vcnsStatus == 'loading' ? <p className="text-center text-gray-600">Loading virtual cards...</p> :
+                vcns.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {vcns.map((vcn) => (
                     <div

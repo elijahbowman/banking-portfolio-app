@@ -16,8 +16,8 @@ export default function App() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <TransferForm />
           <WithdrawalForm />
+          <TransferForm />
         </div>
 
         <div className="mt-8">
