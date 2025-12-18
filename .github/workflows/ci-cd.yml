@@ -440,20 +440,40 @@ jobs:
           SAM_CLI_TELEMETRY: 0
           MAVEN_OPTS: "-DskipTests=true -Ddependency.check.skip=true -X"
         run: |
+          # Log location
           cd backend/card-service
           echo "Working Directory: "
           pwd
           echo "Files in target folder: "
           ls -la target/
+
+          # Build
           sam build --use-container --container-env-var MAVEN_OPTS="${MAVEN_OPTS}"
           # sam build --use-container --parameter-overrides MavenCommand="clean package -DskipTests=true -Ddependency.check.skip=true"
+
+          # Fetch Kafka broker from core stack export
+          KAFKA_BROKER=$(aws cloudformation describe-stacks \
+            --stack-name banking-portfolio-core \
+            --query "Stacks[0].Outputs[?ExportName=='banking-portfolio-core:KafkaBroker'].OutputValue" \
+            --output text)
+
+          if [ -z "$KAFKA_BROKER" ]; then
+            echo "Error: KafkaBroker export not found"
+            exit 1
+          fi
+
+          # Deploy
           sam deploy \
-            --stack-name banking-card-lambda \
+            --stack-name banking-portfoiio-card-lambda \
             --s3-bucket ${{ env.S3_BUCKET }} \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset \
             --region us-east-1 \
             --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND
+            --parameter-overrides \
+              Environment=prod \
+              Architecture=x86_64 \
+              KafkaBootstrapServers=$KAFKA_BROKER
 
       - name: Output Lambda API URL
         run: |
@@ -820,3 +840,70 @@ jobs:
     #     text: "💥 Banking Portfolio deployment to AWS failed!"
     #   env:
     #     SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+
+
+  deploy-monitoring:
+    needs: deploy-infrastructure-eb
+    runs-on: ubuntu-latest
+    # environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Upload monitoring configs to S3
+        run: |
+          aws s3 cp monitoring/prometheus-template.yml s3://banking-portfolio-artifacts/prometheus-template.yml
+          aws s3 cp monitoring/loki-config-template.yaml s3://banking-portfolio-artifacts/loki-config-template.yaml
+          aws s3 cp monitoring/promtail-config-template.yml s3://banking-portfolio-artifacts/promtail-config-template.yml
+
+      - name: Get VPC and public subnet
+        id: vpc_and_public_subnet_ids
+        run: |
+          vpc_id=$(aws ec2 describe-vpcs \
+            --region ${{ env.AWS_REGION }} \
+            --query 'Vpcs[0].VpcId' --output text)
+
+          public_subnet_id=$(aws ec2 describe-subnets \
+            --region ${{ env.AWS_REGION }} \
+            --filters "Name=vpc-id,Values=$vpc_id" "Name=map-public-ip-on-launch,Values=true" \
+            --query "Subnets[?AvailabilityZone=='${{ env.AWS_REGION }}a'].SubnetId" \
+            --output text | head -n 1)
+          
+          if [ -z "$public_subnet_id" ]; then
+            echo "Error: No public subnet found in VPC $vpc_id" >&2
+            exit 1
+          fi
+
+          echo "vpc_id=${vpc_id}" >> "${GITHUB_OUTPUT}"
+          echo "public_subnet_id=${public_subnet_id}" >>  "${GITHUB_OUTPUT}"
+
+      - name: Deploy Monitoring Stack
+        uses: aws-actions/aws-cloudformation-github-deploy@v1.2.0
+        with:
+          name: banking-portfolio-monitoring
+          template: infrastructure/infrastructure-monitoring.yml
+          capabilities: CAPABILITY_IAM
+          parameter-overrides: >
+            VpcId=${{ steps.vpc_and_public_subnet_ids.outputs.vpc_id }},
+            PublicSubnetId=${{ steps.vpc_and_public_subnet_ids.outputs.public_subnet_id }}
+          no-fail-on-empty-changeset: "1"
+
+      - name: Wait for Grafana
+        run: |
+          GRAFANA_IP=$(aws cloudformation describe-stacks \
+            --stack-name banking-portfolio-monitoring \
+            --query 'Stacks[0].Outputs[?OutputKey==`GrafanaUrl`].OutputValue' \
+            --output text | cut -d'/' -f3 | cut -d':' -f1)
+          until curl -s http://$GRAFANA_IP:3000/api/health; do
+            echo "Waiting for Grafana..."; sleep 15; done
+          echo "Grafana is ready at http://$GRAFANA_IP:3000"
+
+      - name: Update EB with Zipkin URL
+        run: |
+          ZIPKIN_BASE_URL=$(aws cloudformation describe-stacks --stack-name banking-portfolio-monitoring \
+            --query "Stacks[0].Outputs[?OutputKey=='banking-portfolio-monitoring:ZipkinUrl'].OutputValue" --output text)
+
+          aws elasticbeanstalk update-environment --environment-name banking-env \
+            --option-settings "Namespace=aws:elasticbeanstalk:application:environment,OptionName=ZIPKIN_BASE_URL,Value=$ZIPKIN_BASE_URL"
+
+          aws elasticbeanstalk update-environment --environment-name account-env \
+            --option-settings "Namespace=aws:elasticbeanstalk:application:environment,OptionName=ZIPKIN_BASE_URL,Value=$ZIPKIN_BASE_URL"

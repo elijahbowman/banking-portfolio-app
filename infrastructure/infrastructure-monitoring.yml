@@ -1,0 +1,260 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Monitoring Stack - Prometheus, Grafana, Loki on EC2
+
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC for monitoring instance
+  PublicSubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Description: Public subnet for EC2
+  AmiId:
+    Type: String
+    # Default: ami-0c55b159cbfafe1f0  # Amazon Linux 2023
+    Default: ami-052064a798f08f0d3
+  InstanceType:
+    Type: String
+    Default: t3.medium
+  BankingServiceUrlExportName:
+    Type: String
+    Default: banking-portolio-BankingEnvironmentUrl
+    Description: URL of banking-service
+  AccountServiceUrlExportName:
+    Type: String
+    Default: banking-portolio-AccountEnvironmentUrl
+    Description: URL of account-service
+  KafkaBrokerExportName:
+    Type: String
+    Default: banking-portolio-core:KafkaBroker
+    Description: Kafka brokers (comma-separated)
+
+Resources:
+  MonitoringSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow access to monitoring tools
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3000
+          ToPort: 3000
+          CidrIp: 0.0.0.0/0
+          Description: Grafana UI
+        - IpProtocol: tcp
+          FromPort: 9090
+          ToPort: 9090
+          CidrIp: 0.0.0.0/0
+          Description: Prometheus UI
+        - IpProtocol: tcp
+          FromPort: 3100
+          ToPort: 3100
+          CidrIp: 0.0.0.0/0
+          Description: Loki API
+        - IpProtocol: tcp
+          FromPort: 9080
+          ToPort: 9080
+          CidrIp: 0.0.0.0/0
+          Description: Promtail Listener
+        - IpProtocol: tcp
+          FromPort: 9411
+          ToPort: 9411
+          CidrIp: 0.0.0.0/0
+          Description: Zipkin Tracing URL
+        - IpProtocol: tcp
+          FromPort: 9308 
+          ToPort: 9308
+          CidrIp: 0.0.0.0/0
+          Description: Kafka Exporter
+        - IpProtocol: tcp
+          FromPort: 9100
+          ToPort: 9100
+          CidrIp: 0.0.0.0/0
+          Description: Node Exporter
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+          Description: SSH (optional)
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+
+  # EC2 Instance
+  MonitoringInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref InstanceType
+      SubnetId: !Ref PublicSubnetId
+      ImageId: !Ref AmiId
+      SecurityGroupIds:
+        - !Ref MonitoringSecurityGroup
+      # KeyName: banking-portfolio-key  # Optional: create in AWS
+      UserData:
+        Fn::Base64: 
+          Fn::Sub: 
+            - |
+              #!/bin/bash
+              yum update -y
+
+              # Install and setup docker
+              amazon-linux-extras install docker -y
+              service docker start
+              usermod -a -G docker ec2-user
+
+              # Install and setup docker-compose
+              curl -L "https://github.com/docker/compose/releases/download/v2.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+              chmod +x /usr/local/bin/docker-compose
+
+              # Create docker-compose.monitoring.yml
+              cat << EOF > /home/ec2-user/docker-compose.monitoring.yml
+              version: '3.8'
+
+              services:
+                prometheus:
+                  image: prom/prometheus:latest
+                  container_name: banking-prometheus
+                  ports: [9090:9090]
+                  volumes:
+                    - /home/ec2-user/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+                  command:
+                    - '--config.file=/etc/prometheus/prometheus.yml'
+                    - '--storage.tsdb.path=/prometheus'
+                    - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+                  networks:
+                    - banking-network
+
+                grafana:
+                  image: grafana/grafana:latest
+                  # user: "501"
+                  container_name: banking-grafana
+                  ports: [3000:3000]
+                  environment:
+                    - GF_AUTH_ANONYMOUS_ENABLED=true
+                    - GF_SECURITY_ADMIN_PASSWORD=admin
+                  volumes:
+                    - grafana_data:/var/lib/grafana
+                  depends_on: [prometheus, loki]
+                  networks:
+                    - banking-network
+
+                loki:
+                  image: grafana/loki:latest
+                  container_name: banking-loki
+                  volumes:
+                    - /home/ec2-user/monitoring/loki-config.yml:/etc/loki/local-config.yaml
+                  ports: [3100:3100]
+                  command: -config.file=/etc/loki/local-config.yaml
+                  networks:
+                    - banking-network
+
+                promtail:
+                  image: grafana/promtail:latest
+                  container_name: banking-promtail
+                  volumes:
+                    - /home/ec2-user/monitoring/promtail-config.yml:/etc/promtail/config.yml
+                    - /var/run/docker.sock:/var/run/docker.sock
+                    - ./logs:/logs
+                  command: -config.file=/etc/promtail/config.yml
+                  depends_on: [loki]
+                  networks:
+                    - banking-network
+
+                zipkin:
+                  image: openzipkin/zipkin:latest
+                  container_name: banking-zipkin
+                  ports:
+                    - "9411:9411"
+                  networks:
+                    - banking-network
+
+                kafka-exporter:
+                  image: danielqsj/kafka-exporter:latest
+                  container_name: banking-kafka-exporter
+                  ports: [9308:9308]
+                  command:
+                    - --kafka.server={KAFKA_BROKER}
+                    - --topic.filter=.*
+                    - --group.filter=.*
+                    - --log.level=debug
+                  networks:
+                    - banking-network
+
+                node-exporter:
+                  image: prom/node-exporter:latest
+                  container_name: node-exporter
+                  ports: [9100:9100]
+                  networks:
+                    - banking-network
+
+              volumes:
+                grafana_data:
+
+              networks:
+                banking-network:
+                  driver: bridge
+                  name: banking-network
+              EOF
+
+              # Create config directory
+              mkdir -p /home/ec2-user/monitoring
+
+              # Download configs from S3 (upload via CI/CD)
+              aws s3 cp s3://banking-portfolio-artifacts/prometheus-template.yml /home/ec2-user/monitoring/prometheus-template.yml
+              aws s3 cp s3://banking-portfolio-artifacts/loki-config-template.yaml /home/ec2-user/monitoring/loki-config-template.yaml
+              aws s3 cp s3://banking-portfolio-artifacts/promtail-config-template.yml /home/ec2-user/monitoring/promtail-config-template.yml
+
+              # Replace placeholders with dynamic URLs
+              sed -i "s|{BANKING_SERVICE_URL}|${BankingServiceUrl}|g" /home/ec2-user/monitoring/prometheus.yml
+              sed -i "s|{ACCOUNT_SERVICE_URL}|${AccountServiceUrl}|g" /home/ec2-user/monitoring/prometheus.yml
+              sed -i "s|{KAFKA_BROKER}|${KafkaBroker}|g" /home/ec2-user/monitoring/docker-compose.monitoring.yml
+
+              # Start containers
+              /usr/local/bin/docker-compose -f /home/ec2-user/docker-compose.monitoring.yml up -d  >> /home/ec2-user/userdata.log 2>&1
+
+            - BankingServiceUrl:
+              Fn::ImportValue: !Ref BankingServiceUrlExportName
+            - AccountServiceUrl:
+              Fn::ImportValue: !Ref AccountServiceUrlExportName
+            - KafkaBroker:
+              Fn::ImportValue: !Ref KafkaBrokerExportName
+
+      Tags:
+        - Key: Name
+          Value: monitoring-stack
+      IamInstanceProfile: !Ref MonitoringInstanceProfile
+
+  # IAM Role for EC2 to access S3
+  MonitoringInstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
+
+  MonitoringInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref MonitoringInstanceRole
+
+Outputs:
+  GrafanaUrl:
+    Description: Access Grafana Dashboard
+    Value: !Sub http://${MonitoringInstance.PublicIp}:3000
+    Export:
+      Name: !Sub ${AWS::StackName}:GrafanaUrl
+
+  PrometheusUrl:
+    Description: Access Prometheus
+    Value: !Sub http://${MonitoringInstance.PublicIp}:9090
+
+  LokiUrl:
+    Description: Loki API
+    Value: !Sub http://${MonitoringInstance.PublicIp}:3100
+
+  ZipkinUrl:
+  Description: URL for Zipkin tracing
+  Value: !Sub "http://${MonitoringInstance.PublicIp}:9411"
+  Export:
+      Name: !Sub ${AWS::StackName}:ZipkinUrl

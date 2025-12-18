@@ -242,48 +242,6 @@ Resources:
       Tags:
         - Key: Name
           Value: kafka-zookeeper
-  CardsTable:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      TableName: Cards
-      AttributeDefinitions:
-        - AttributeName: cardId
-          AttributeType: S
-      KeySchema:
-        - AttributeName: cardId
-          KeyType: HASH
-      ProvisionedThroughput:
-        ReadCapacityUnits: 5
-        WriteCapacityUnits: 5
-      StreamSpecification:
-        StreamViewType: NEW_IMAGE
-  DynamoDBAccessRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: ec2.amazonaws.com
-            Action: sts:AssumeRole
-      Policies:
-        - PolicyName: DynamoDBAccess
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - dynamodb:PutItem
-                  - dynamodb:GetItem
-                  - dynamodb:UpdateItem
-                  - dynamodb:DeleteItem
-                Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/Cards
-  DynamoDBInstanceProfile:
-    Type: AWS::IAM::InstanceProfile
-    Properties:
-      Roles:
-        - !Ref DynamoDBAccessRole
 Outputs:
   RDSEndpoint:
     Description: Endpoint for banking-postgres
@@ -305,8 +263,3 @@ Outputs:
     Value: !Ref ArtifactsBucket
     Export:
       Name: !Sub ${AWS::StackName}:ArtifactsBucketName
-  DynamoDBTable:
-    Description: DynamoDB table for cards
-    Value: !Ref CardsTable
-    Export:
-      Name: !Sub ${AWS::StackName}:DynamoDBTable

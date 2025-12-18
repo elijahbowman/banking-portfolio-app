@@ -1,0 +1,48 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'banking-service'
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['{BANKING_SERVICE_URL}:8080']
+        labels:
+          application: banking-service
+          job: banking-service
+
+  - job_name: 'account-service'
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['{ACCOUNT_SERVICE_URL}:8081']
+        labels:
+          application: account-service
+          job: account-service
+
+  # - job_name: 'card-service'
+  #   metrics_path: /Prod/actuator/prometheus
+  #   scheme: https
+  #   static_configs:
+  #     - targets: ['{CARD_SERVICE_URL}:8082']
+  #       labels:
+  #         application: card-service
+
+  - job_name: 'kafka-exporter'
+    static_configs:
+      - targets: ['kafka-exporter:9308']
+        labels:
+          application: kafka
+          job: kafka-exporter
+
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+        labels:
+          application: host
+
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets: ['alertmanager:9093']
+
+rule_files:
+  - /etc/prometheus/alert-rules.yml

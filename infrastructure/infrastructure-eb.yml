@@ -260,20 +260,26 @@ Resources:
           Value: !GetAtt AccountEnvironment.EndpointURL
         - Namespace: aws:elasticbeanstalk:application:environment
           OptionName: CARD_SERVICE_URL
-          Value: !ImportValue CardServiceLambdaApiUrl   # This comes from SAM stack
+          Value: !ImportValue banking-portfolio-card-lambda:ApiUrl
         - Namespace: aws:elasticbeanstalk:healthreporting:system
           OptionName: SystemType
           Value: enhanced
 Outputs:
-  EBEnvironmentUrl:
+  BankingEnvironmentUrl:
     Description: URL for banking-env
     Value: !GetAtt BankingEnvironment.EndpointURL
+    Export:
+      Name: !Sub "${AWS::StackName}:BankingEnvironmentUrl"
   AccountEnvironmentUrl:
     Description: URL for account-env
     Value: !GetAtt AccountEnvironment.EndpointURL
+    Export:
+      Name: !Sub "${AWS::StackName}:AccountEnvironmentUrl"
   FrontendEnvironmentUrl:
     Description: URL for frontend-env
     Value: !GetAtt FrontendEnvironment.EndpointURL
+    Export:
+      Name: !Sub "${AWS::StackName}:FrontendEnvironmentUrl"
   FrontendUrl:
     Description: SSM Parameter store key for the Frontend URL
     Value: /banking/frontend/url

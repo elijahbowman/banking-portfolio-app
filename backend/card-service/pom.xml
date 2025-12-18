@@ -30,18 +30,14 @@
 		<java.version>17</java.version>
 		<dependency.check.skip>true</dependency.check.skip>
 		<odc.autoUpdate>true</odc.autoUpdate>
-		<spring-cloud.version>2024.0.0</spring-cloud.version>
-		<aws-serverless-java-container.version>2.0.0</aws-serverless-java-container.version>
+		<spring-cloud.version>2025.0.0</spring-cloud.version>
+		<aws-serverless-java-container.version>2.1.0</aws-serverless-java-container.version>
 	</properties>
 	<dependencies>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-actuator</artifactId>
 		</dependency>
-<!--		<dependency>-->
-<!--			<groupId>org.springframework.boot</groupId>-->
-<!--			<artifactId>spring-boot-starter-web</artifactId>-->
-<!--		</dependency>-->
 		<dependency>
 			<groupId>org.springframework.kafka</groupId>
 			<artifactId>spring-kafka</artifactId>
@@ -78,26 +74,13 @@
 			<scope>test</scope>
 		</dependency>
 		<dependency>
-			<groupId>com.amazonaws</groupId>
-			<artifactId>aws-java-sdk-s3</artifactId>
-			<version>1.12.634</version>
-			<exclusions>
-				<exclusion>
-					<groupId>software.amazon.ion</groupId>
-					<artifactId>ion-java</artifactId>
-				</exclusion>
-			</exclusions>
-		</dependency>
-		<dependency>
-			<groupId>com.amazon.ion</groupId>
-			<artifactId>ion-java</artifactId>
-			<version>1.11.10</version>
+			<groupId>io.awspring.cloud</groupId>
+			<artifactId>spring-cloud-aws-starter-s3</artifactId>
 		</dependency>
 
 		<dependency>
 			<groupId>io.awspring.cloud</groupId>
-			<artifactId>spring-cloud-starter-aws-parameter-store-config</artifactId>
-			<version>2.4.2</version>
+			<artifactId>spring-cloud-aws-starter-parameter-store</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>com.h2database</groupId>
@@ -117,11 +100,6 @@
 			<groupId>io.awspring.cloud</groupId>
 			<artifactId>spring-cloud-aws-starter-dynamodb</artifactId>
 		</dependency>
-<!--		<dependency>-->
-<!--			<groupId>io.awspring.cloud</groupId>-->
-<!--			<artifactId>spring-cloud-starter-aws</artifactId>-->
-<!--			<version>2.4.4</version>-->
-<!--		</dependency>-->
 		<dependency>
 			<groupId>org.testcontainers</groupId>
 			<artifactId>localstack</artifactId>
@@ -281,11 +259,32 @@
 						<configuration>
 							<finalName>card-service-lambda</finalName>
 							<createDependencyReducedPom>false</createDependencyReducedPom>
+							<artifactSet>
+								<excludes>
+									<exclude>org.apache.tomcat.embed:*</exclude>
+								</excludes>
+							</artifactSet>
 							<transformers>
-								<transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-									<mainClass>org.springframework.boot.loader.JarLauncher</mainClass>
+								<!-- Merges Spring's auto-configuration and handlers files instead of overwriting them -->
+								<transformer implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
+									<resource>META-INF/spring.handlers</resource>
+								</transformer>
+								<transformer implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
+									<resource>META-INF/spring.schemas</resource>
+								</transformer>
+								<!-- CRITICAL for Spring Boot 3+: Merges the new autoconfiguration import files -->
+								<transformer implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
+									<resource>META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports</resource>
+								</transformer>
+								<transformer implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
+									<resource>META-INF/spring/org.springframework.boot.actuate.autoconfigure.ManagementContextConfiguration.imports</resource>
 								</transformer>
 								<transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+								<transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+									<!-- Note: When using aws-serverless-java-container, the mainClass is typically NOT needed
+                                         as Lambda calls your StreamLambdaHandler directly. -->
+									<mainClass>org.springframework.boot.loader.JarLauncher</mainClass>
+								</transformer>
 							</transformers>
 						</configuration>
 					</execution>

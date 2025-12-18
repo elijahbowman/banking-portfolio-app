@@ -3,7 +3,7 @@ version = 0.1
 [default.local_start_api.parameters]
 port = 8082
 warm-containers = "EAGER"
-environment_variables = "sam-local-env-vars.json"
+env_vars = "sam-local-env-vars.json"
 
 #[default.local_start_api.build_override]
 #CardServiceFunction = "mvn package -Dspring.profiles.active=lambda-local -Ddependency.check.skip=true"
