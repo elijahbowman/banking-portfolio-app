@@ -14,9 +14,70 @@ env:
   SKIP_DEPENDENCY_CHECK: 'true'
   OWASP_ZAP_SCAN_TARGET_HOSTNAME: 'localhost'
 
-jobs:  
-  build-and-test-banking:
+jobs:
+  delete-old-stacks:
     # if: false
+    # if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Delete old monitoring stack
+        run: |
+          aws cloudformation delete-stack \
+            --stack-name banking-portfolio-monitoring \
+            --region us-east-1
+          aws cloudformation wait stack-delete-complete \
+            --stack-name banking-portfolio-monitoring \
+            --region us-east-1
+
+      - name: Delete old EB infrastructure stack
+        run: |
+          # Empty bucket
+          if aws s3 ls s3://${{ env.S3_BUCKET }}/ >/dev/null 2>&1; then
+            aws s3 rm s3://${{ env.S3_BUCKET }} --recursive
+          fi
+          
+          # # Delete bucket
+          # aws s3 rb s3://banking-portfolio-artifacts --force || echo "Bucket already gone"
+
+          # Delete stack
+          aws cloudformation delete-stack \
+            --stack-name banking-portfolio-eb \
+            --region ${{ env.AWS_REGION }}
+          aws cloudformation wait stack-delete-complete \
+            --stack-name banking-portfolio-eb \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Delete old card lambda stack
+        run: |
+          # 1. Check if stack exists before deleting to avoid unnecessary waits
+          if aws cloudformation describe-stacks --stack-name banking-portfolio-card-lambda --region us-east-1 > /dev/null 2>&1; then
+            echo "Stack exists. Initiating delete..."
+            aws cloudformation delete-stack --stack-name banking-portfolio-card-lambda --region us-east-1
+            
+            # 2. Wait for deletion
+            aws cloudformation wait stack-delete-complete --stack-name banking-portfolio-card-lambda --region us-east-1
+          else
+            echo "Stack does not exist. Skipping delete."
+          fi
+
+      - name: Delete old core infrastructure stack
+        run: |
+          aws cloudformation delete-stack \
+            --stack-name banking-portfolio-core \
+            --region ${{ env.AWS_REGION }}
+          aws cloudformation wait stack-delete-complete \
+            --stack-name banking-portfolio-core \
+            --region ${{ env.AWS_REGION }}
+
+  build-and-test-banking:
+    if: false
     runs-on: ubuntu-latest
     steps:
     - name: Checkout code
@@ -69,7 +130,7 @@ jobs:
           backend/banking-service/target/jacoco.exec
 
   build-and-test-account:
-    # if: false
+    if: false
     runs-on: ubuntu-latest
     steps:
     - name: Checkout code
@@ -122,7 +183,7 @@ jobs:
           backend/account-service/target/jacoco.exec
 
   build-and-test-card:
-    # if: false
+    if: false
     runs-on: ubuntu-latest
     steps:
     - name: Checkout code
@@ -175,7 +236,7 @@ jobs:
           backend/card-service/target/jacoco.exec
   
   build-and-test-frontend:
-    # if: false
+    if: false
     runs-on: ubuntu-latest
     steps:
     - name: Checkout code
@@ -197,7 +258,7 @@ jobs:
       if: success()
 
   build-and-test-docker-images:
-    # if: false
+    if: false
     runs-on: ubuntu-latest 
     steps:
     - name: Checkout code
@@ -221,8 +282,8 @@ jobs:
       if: success()
 
   sonarqube-scan:
-    # if: false
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: false
+    # if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     needs: [build-and-test-banking, build-and-test-account, build-and-test-card, build-and-test-frontend]
     runs-on: ubuntu-latest
     steps:
@@ -278,7 +339,7 @@ jobs:
           -Dsonar.coverage.jacoco.xmlReportPaths=backend/banking-service/target/site/jacoco/jacoco.xml,backend/account-service/target/site/jacoco/jacoco.xml,backend/card-service/target/site/jacoco/jacoco.xml
   
   owasp-zap-scan:
-    # if: false
+    if: false
     needs: [build-and-test-banking, build-and-test-account, build-and-test-card, build-and-test-frontend]
     runs-on: ubuntu-latest
     steps:
@@ -334,14 +395,17 @@ jobs:
   #     if: always()
 
   deploy-infrastructure-core:
-    # if: false
-    if: github.ref == 'refs/heads/feature/main' && github.event_name == 'push'
+    if: false
+    # if: github.ref == 'refs/heads/feature/main' && github.event_name == 'push'
+    # if: |
+    #   (github.ref == 'refs/heads/feature/main' || github.ref == 'refs/heads/feature/sprint1-setup' || github.ref == 'refs/heads/feature/sprint2' || github.ref == 'refs/heads/feature/sprint3' || github.ref == 'refs/heads/feature/sprint4') &&
+    #   github.event_name == 'push'
     # if: |
     #   (github.ref == 'refs/heads/feature/main' || github.ref == 'refs/heads/feature/sprint1-setup' || github.ref == 'refs/heads/feature/sprint2' || github.ref == 'refs/heads/feature/sprint3' || github.ref == 'refs/heads/feature/sprint4') &&
     #   github.event_name == 'push' &&
     #   (needs.sonarqube-scan.result == 'success' || needs.sonarqube-scan.result == 'skipped')
-    needs: [sonarqube-scan, owasp-zap-scan]
-    # needs: [owasp-zap-scan]
+    # needs: [sonarqube-scan, owasp-zap-scan]
+    needs: [owasp-zap-scan]
     # needs: [build-and-test-banking, build-and-test-account, build-and-test-card, build-and-test-frontend, security-scan]
     runs-on: ubuntu-latest
     steps:
@@ -354,27 +418,6 @@ jobs:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ env.AWS_REGION }}
-
-    # - name: Delete old EB infrastructure stack
-    #   run: |
-    #     if aws s3 ls s3://${{ env.S3_BUCKET }}/ >/dev/null 2>&1; then
-    #       aws s3 rm s3://${{ env.S3_BUCKET }} --recursive
-    #     fi
-    #     aws cloudformation delete-stack \
-    #       --stack-name banking-portfolio-eb \
-    #       --region ${{ env.AWS_REGION }}
-    #     aws cloudformation wait stack-delete-complete \
-    #       --stack-name banking-portfolio-eb \
-    #       --region ${{ env.AWS_REGION }}
-
-    # - name: Delete old core infrastructure stack
-    #   run: |
-    #     aws cloudformation delete-stack \
-    #       --stack-name banking-portfolio-core \
-    #       --region ${{ env.AWS_REGION }}
-    #     aws cloudformation wait stack-delete-complete \
-    #       --stack-name banking-portfolio-core \
-    #       --region ${{ env.AWS_REGION }}
 
     - name: Deploy core infrastructure stack
       run: |
@@ -392,7 +435,8 @@ jobs:
           --no-fail-on-empty-changeset
 
   deploy-card-lambda:
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: false
+    # if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     # if: (github.ref == 'refs/heads/feature/main' || github.ref == 'refs/heads/feature/sprint1-setup' || github.ref == 'refs/heads/feature/sprint2' || github.ref == 'refs/heads/feature/sprint3' || github.ref == 'refs/heads/feature/sprint4') && github.event_name == 'push'
     needs: deploy-infrastructure-core
     runs-on: ubuntu-latest
@@ -448,7 +492,16 @@ jobs:
           ls -la target/
 
           # Build
-          sam build --use-container --container-env-var MAVEN_OPTS="${MAVEN_OPTS}"
+          # sam build --use-container --container-env-var MAVEN_OPTS="${MAVEN_OPTS}"
+
+          # sam build \
+          #   --parameter-overrides \
+          #       Environment=prod \
+          #       Architecture=x86_64 \
+          #   --debug
+
+          sam build --debug
+
           # sam build --use-container --parameter-overrides MavenCommand="clean package -DskipTests=true -Ddependency.check.skip=true"
 
           # Fetch Kafka broker from core stack export
@@ -462,29 +515,52 @@ jobs:
             exit 1
           fi
 
+          # Get VPC, subnet, and security group ids
+          VpcId=$(aws ec2 describe-vpcs --query "Vpcs[0].VpcId" --output text)
+          SubnetId=$(aws ec2 describe-subnets --filters "Name=availability-zone,Values=us-east-1a" --query 'Subnets[0].SubnetId' --output text)
+          SGId=$(aws cloudformation describe-stacks \
+            --stack-name banking-portfolio-core \
+            --query "Stacks[0].Outputs[?ExportName=='banking-portfolio-core:EBSecurityGroupId'].OutputValue" \
+            --output text)
+          PrivateRouteTableId=$(aws ec2 describe-route-tables \
+            --filters "Name=vpc-id,Values=$VpcId" "Name=association.main,Values=true" \
+            --query 'RouteTables[0].RouteTableId' --output text)
+          KafkaBootstrapServers=$(aws cloudformation describe-stacks \
+          --stack-name banking-portfolio-core \
+          --query "Stacks[0].Outputs[?ExportName=='banking-portfolio-core:KafkaBroker'].OutputValue" \
+          --output text)
+
+          NOW=$(date +'%Y-%m-%dT%H:%M:%S')
+
           # Deploy
           sam deploy \
-            --stack-name banking-portfoiio-card-lambda \
+            --stack-name banking-portfolio-card-lambda \
             --s3-bucket ${{ env.S3_BUCKET }} \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset \
             --region us-east-1 \
-            --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND
+            --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND \
             --parameter-overrides \
-              Environment=prod \
+              DeploymentEnv=prod \
               Architecture=x86_64 \
-              KafkaBootstrapServers=$KAFKA_BROKER
+              VpcId=$VpcId \
+              KafkaSubnetId=$SubnetId \
+              LambdaSecurityGroupId=$SGId \
+              PrivateRouteTableId=$PrivateRouteTableId \
+              KafkaBootstrapServers=$KafkaBootstrapServers \
+              DeployTimestamp=$NOW \
+            --debug
 
       - name: Output Lambda API URL
         run: |
-          URL=$(aws cloudformation describe-stacks --stack-name banking-card-lambda --query 'Stacks[0].Outputs[?OutputKey==`CardServiceApiUrl`].OutputValue' --output text)
+          URL=$(aws cloudformation describe-stacks --stack-name banking-portfolio-card-lambda --query 'Stacks[0].Outputs[?OutputKey==`CardServiceApiUrl`].OutputValue' --output text)
           echo "Card Service Lambda URL: $URL"
           echo "CARD_SERVICE_URL=$URL" >> $GITHUB_ENV
 
   deploy-infrastructure-eb:
     # if: false
-    if: github.ref == 'refs/heads/feature/main' && github.event_name == 'push'
-    # if: (github.ref == 'refs/heads/feature/main' || github.ref == 'refs/heads/feature/sprint1-setup' || github.ref == 'refs/heads/feature/sprint2' || github.ref == 'refs/heads/feature/sprint3' || github.ref == 'refs/heads/feature/sprint4') && github.event_name == 'push'
+    # if: github.ref == 'refs/heads/feature/main' && github.event_name == 'push'
+    if: (github.ref == 'refs/heads/feature/main' || github.ref == 'refs/heads/feature/sprint1-setup' || github.ref == 'refs/heads/feature/sprint2' || github.ref == 'refs/heads/feature/sprint3' || github.ref == 'refs/heads/feature/sprint4') && github.event_name == 'push'
     needs: deploy-card-lambda
     runs-on: ubuntu-latest
     steps:
@@ -512,11 +588,102 @@ jobs:
           --capabilities CAPABILITY_NAMED_IAM \
           --no-fail-on-empty-changeset
 
+  deploy-monitoring:
+    if: false
+    # if: (github.ref == 'refs/heads/feature/main' || github.ref == 'refs/heads/feature/sprint1-setup' || github.ref == 'refs/heads/feature/sprint2' || github.ref == 'refs/heads/feature/sprint3' || github.ref == 'refs/heads/feature/sprint4') && github.event_name == 'push'
+    needs: deploy-infrastructure-eb
+    runs-on: ubuntu-latest
+    # environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Upload monitoring configs to S3
+        run: |
+          aws s3 cp monitoring/templates/prometheus-template.yml s3://banking-portfolio-artifacts/prometheus-template.yml
+          aws s3 cp monitoring/templates/loki-config-template.yml s3://banking-portfolio-artifacts/loki-config-template.yml
+
+      - name: Get VPC and public subnet
+        id: vpc_and_public_subnet_ids
+        run: |
+          vpc_id=$(aws ec2 describe-vpcs \
+            --region ${{ env.AWS_REGION }} \
+            --query 'Vpcs[0].VpcId' --output text)
+
+          public_subnet_id=$(aws ec2 describe-subnets \
+            --region ${{ env.AWS_REGION }} \
+            --filters "Name=vpc-id,Values=$vpc_id" "Name=map-public-ip-on-launch,Values=true" \
+            --query "Subnets[?AvailabilityZone=='${{ env.AWS_REGION }}a'].SubnetId" \
+            --output text | head -n 1)
+          
+          if [ -z "$public_subnet_id" ]; then
+            echo "Error: No public subnet found in VPC $vpc_id" >&2
+            exit 1
+          fi
+
+          echo "vpc_id=${vpc_id}" >> "${GITHUB_OUTPUT}"
+          echo "public_subnet_id=${public_subnet_id}" >>  "${GITHUB_OUTPUT}"
+
+      - name: Deploy Monitoring Stack
+        uses: aws-actions/aws-cloudformation-github-deploy@v1.2.0
+        with:
+          name: banking-portfolio-monitoring
+          template: infrastructure/infrastructure-monitoring.yml
+          capabilities: CAPABILITY_IAM
+          parameter-overrides: >
+            VpcId=${{ steps.vpc_and_public_subnet_ids.outputs.vpc_id }},
+            PublicSubnetId=${{ steps.vpc_and_public_subnet_ids.outputs.public_subnet_id }}
+          no-fail-on-empty-changeset: "1"
+
+      # - name: Wait for Grafana
+      #   run: |
+      #     GRAFANA_IP=$(aws cloudformation describe-stacks \
+      #       --stack-name banking-portfolio-monitoring \
+      #       --query 'Stacks[0].Outputs[?OutputKey==`GrafanaUrl`].OutputValue' \
+      #       --output text | cut -d'/' -f3 | cut -d':' -f1)
+      #     until curl -s http://$GRAFANA_IP:3000/api/health; do
+      #       echo "Waiting for Grafana..."; sleep 15; done
+      #     echo "Grafana is ready at http://$GRAFANA_IP:3000"
+
+      - name: Wait for Grafana
+        run: |
+          GRAFANA_IP=$(aws cloudformation describe-stacks \
+            --stack-name banking-portfolio-monitoring \
+            --query 'Stacks[0].Outputs[?OutputKey==`GrafanaUrl`].OutputValue' \
+            --output text | sed 's|http://||' | sed 's|:3000||')
+
+          echo "Waiting for Grafana at $GRAFANA_IP:3000"
+
+          timeout=600  # 10 minutes
+          interval=10
+          elapsed=0
+
+          while [ $elapsed -lt $timeout ]; do
+            if curl -s --connect-timeout 5 http://$GRAFANA_IP:3000/api/health | grep -q "ok"; then
+              echo "Grafana is healthy!"
+              echo "Access at http://$GRAFANA_IP:3000"
+              exit 0
+            fi
+            echo "Not ready yet... retrying in $interval seconds"
+            sleep $interval
+            elapsed=$((elapsed + interval))
+          done
+
+          echo "Error: Grafana failed to become healthy"
+          exit 1
+
   deploy-application:
     if: false
     # if: github.ref == 'refs/heads/feature/main' && github.event_name == 'push'
     # if: (github.ref == 'refs/heads/feature/main' || github.ref == 'refs/heads/feature/sprint1-setup' || github.ref == 'refs/heads/feature/sprint2' || github.ref == 'refs/heads/feature/sprint3' || github.ref == 'refs/heads/feature/sprint4') && github.event_name == 'push'
-    needs: deploy-infrastructure-eb
+    # needs: deploy-infrastructure-eb
+    needs: deploy-monitoring
     runs-on: ubuntu-latest
     steps:
     - name: Checkout code
@@ -555,7 +722,6 @@ jobs:
       run: |
         docker build -t banking-service:latest ./backend/banking-service
         docker build -t account-service:latest ./backend/account-service
-        docker build -t card-service:latest ./backend/card-service
         docker build -t frontend:latest ./frontend
 
     - name: Login to Docker Hub
@@ -568,59 +734,74 @@ jobs:
       run: |
         docker tag banking-service:latest ${{ secrets.DOCKERHUB_USERNAME }}/banking-service:latest
         docker tag account-service:latest ${{ secrets.DOCKERHUB_USERNAME }}/account-service:latest
-        docker tag card-service:latest ${{ secrets.DOCKERHUB_USERNAME }}/card-service:latest
         docker tag frontend:latest ${{ secrets.DOCKERHUB_USERNAME }}/frontend:latest
         docker push ${{ secrets.DOCKERHUB_USERNAME }}/banking-service:latest
         docker push ${{ secrets.DOCKERHUB_USERNAME }}/account-service:latest
-        docker push ${{ secrets.DOCKERHUB_USERNAME }}/card-service:latest
         docker push ${{ secrets.DOCKERHUB_USERNAME }}/frontend:latest
+
+    - name: Create alloy.config and docker-compose.yml from templates
+      run: |
+        LOKI_BASE_URL=$(aws cloudformation describe-stacks \
+          --stack-name banking-portfolio-monitoring \
+          --query "Stacks[0].Outputs[?ExportName=='banking-portfolio-monitoring:LokiUrl'].OutputValue" \
+          --output text)
+
+        cd backend/banking-service
+        sed "s|{LOKI_BASE_URL}|${LOKI_BASE_URL}|g" alloy-template.config > config.alloy
+        sed "s|\${DOCKERHUB_USERNAME}|${{ secrets.DOCKERHUB_USERNAME }}|g" docker-compose-template.yml > docker-compose.yml
+        sed -i "s|{LOKI_BASE_URL}|${LOKI_BASE_URL}|g" docker-compose.yml
+
+        cd ../account-service
+        sed "s|{LOKI_BASE_URL}|${LOKI_BASE_URL}|g" alloy-template.config > config.alloy
+        sed "s|\${DOCKERHUB_USERNAME}|${{ secrets.DOCKERHUB_USERNAME }}|g" docker-compose-template.yml > docker-compose.yml
+        sed -i "s|{LOKI_BASE_URL}|${LOKI_BASE_URL}|g" docker-compose.yml
 
     - name: Create Dockerrun.aws.json(s)
       run: |
-        cat > backend/banking-service/Dockerrun.aws.json << EOF
-        {
-          "AWSEBDockerrunVersion": "1",
-          "Image": {
-            "Name": "${{ secrets.DOCKERHUB_USERNAME }}/banking-service:latest",
-            "Update": "true"
-          },
-          "Ports": [
-            {
-              "ContainerPort": 8080,
-              "HostPort": 80
-            }
-          ],
-          "Logging": "/app/logs",
-          "Environment": [
-            {
-              "Name": "SPRING_PROFILES_ACTIVE",
-              "Value": "docker"
-            }
-          ]
-        }
-        EOF
-        cat > backend/account-service/Dockerrun.aws.json << EOF
-        {
-          "AWSEBDockerrunVersion": "1",
-          "Image": {
-            "Name": "${{ secrets.DOCKERHUB_USERNAME }}/account-service:latest",
-            "Update": "true"
-          },
-          "Ports": [
-            {
-              "ContainerPort": 8081,
-              "HostPort": 8081
-            }
-          ],
-          "Logging": "/app/logs",
-          "Environment": [
-            {
-              "Name": "SPRING_PROFILES_ACTIVE",
-              "Value": "docker"
-            }
-          ]
-        }
-        EOF
+        # cat > backend/banking-service/Dockerrun.aws.json << EOF
+        # {
+        #   "AWSEBDockerrunVersion": "1",
+        #   "Image": {
+        #     "Name": "${{ secrets.DOCKERHUB_USERNAME }}/banking-service:latest",
+        #     "Update": "true"
+        #   },
+        #   "Ports": [
+        #     {
+        #       "ContainerPort": 8080,
+        #       "HostPort": 80
+        #     }
+        #   ],
+        #   "Logging": "/app/logs",
+        #   "Environment": [
+        #     {
+        #       "Name": "SPRING_PROFILES_ACTIVE",
+        #       "Value": "docker"
+        #     }
+        #   ]
+        # }
+        # EOF
+        # cat > backend/account-service/Dockerrun.aws.json << EOF
+        # {
+        #   "AWSEBDockerrunVersion": "1",
+        #   "Image": {
+        #     "Name": "${{ secrets.DOCKERHUB_USERNAME }}/account-service:latest",
+        #     "Update": "true"
+        #   },
+        #   "Ports": [
+        #     {
+        #       "ContainerPort": 8081,
+        #       "HostPort": 8081
+        #     }
+        #   ],
+        #   "Logging": "/app/logs",
+        #   "Environment": [
+        #     {
+        #       "Name": "SPRING_PROFILES_ACTIVE",
+        #       "Value": "docker"
+        #     }
+        #   ]
+        # }
+        # EOF
         cat > frontend/Dockerrun.aws.json << EOF
         {
           "AWSEBDockerrunVersion": "1",
@@ -641,11 +822,9 @@ jobs:
     - name: Create source bundles
       run: |
         cd backend/banking-service
-        zip -r source-bundle.zip Dockerrun.aws.json
+        zip -r source-bundle.zip config.alloy docker-compose.yml
         cd ../account-service
-        zip -r source-bundle.zip Dockerrun.aws.json
-        cd ../card-service
-        zip -r source-bundle.zip Dockerrun.aws.json
+        zip -r source-bundle.zip config.alloy docker-compose.yml
         cd ../../frontend
         zip -r source-bundle.zip Dockerrun.aws.json
 
@@ -781,16 +960,21 @@ jobs:
 
     - name: Deploy to EB environment
       run: |
+        ZIPKIN_BASE_URL=$(aws cloudformation describe-stacks --stack-name banking-portfolio-monitoring \
+          --query "Stacks[0].Outputs[?OutputKey=='ZipkinUrl'].OutputValue" --output text)
+
         aws elasticbeanstalk update-environment \
           --application-name banking-portfolio \
           --environment-name banking-env \
           --version-label banking-v${{ github.run_number }} \
-          --region ${{ env.AWS_REGION }}
+          --region ${{ env.AWS_REGION }} \
+          --option-settings "Namespace=aws:elasticbeanstalk:application:environment,OptionName=ZIPKIN_BASE_URL,Value=$ZIPKIN_BASE_URL"
         aws elasticbeanstalk update-environment \
           --application-name banking-portfolio \
           --environment-name account-env \
           --version-label account-v${{ github.run_number }} \
-          --region ${{ env.AWS_REGION }}
+          --region ${{ env.AWS_REGION }} \
+          --option-settings "Namespace=aws:elasticbeanstalk:application:environment,OptionName=ZIPKIN_BASE_URL,Value=$ZIPKIN_BASE_URL"
         aws elasticbeanstalk update-environment \
           --application-name banking-portfolio \
           --environment-name frontend-env \
@@ -821,6 +1005,84 @@ jobs:
         curl -f -X POST "http://$BANKING_URL/api/v1/banking/deposits" -H "Content-Type: application/json" -d '{"accountId":"smoke","amount":1.00}'
         # curl -f "http://$ACCOUNT_URL/api/v1/accounts/balance?accountId=smoke"
 
+    - name: Update Card Lambda with AccountService URL
+      if: success()
+      run: |
+        cd backend/card-service
+
+        ACCOUNT_URL=$(aws elasticbeanstalk describe-environments \
+          --application-name banking-portfolio \
+          --environment-name account-env \
+          --region ${{ env.AWS_REGION }} \
+          --query 'Environments[0].CNAME' --output text)
+        
+        # ACCOUNT_URL=$(aws cloudformation describe-stacks \
+        #   --stack-name banking-portfolio-eb \
+        #   --query "Stacks[0].Outputs[?OutputKey=='AccountEnvironmentUrl'].OutputValue" \
+        #   --output text)
+
+        if [ -z "$ACCOUNT_URL" ]; then
+          echo "Error: AccountEnvironmentURL not found"
+          exit 1
+        fi
+
+        # Frontend IP (from monitoring or public IP)
+        FRONTEND_IP=$(aws cloudformation describe-stacks \
+          --stack-name banking-portfolio-eb \
+          --query "Stacks[0].Outputs[?OutputKey=='FrontendEnvironmentUrl'].OutputValue" \
+          --output text)
+        FRONTEND_IP="http://$FRONTEND_IP"
+
+        # Frontend CNAME (from EB)
+        FRONTEND_CNAME=$(aws elasticbeanstalk describe-environments \
+          --application-name banking-portfolio \
+          --environment-name frontend-env \
+          --query 'Environments[0].CNAME' --output text)
+        FRONTEND_CNAME="http://$FRONTEND_CNAME"
+
+        # Get VPC, subnet, and security group ids
+        VpcId=$(aws ec2 describe-vpcs --query "Vpcs[0].VpcId" --output text)
+        SubnetId=$(aws ec2 describe-subnets --filters "Name=availability-zone,Values=us-east-1a" --query 'Subnets[0].SubnetId' --output text)
+        SGId=$(aws cloudformation describe-stacks \
+          --stack-name banking-portfolio-core \
+          --query "Stacks[0].Outputs[?ExportName=='banking-portfolio-core:EBSecurityGroupId'].OutputValue" \
+          --output text)
+        PrivateRouteTableId=$(aws ec2 describe-route-tables \
+            --filters "Name=vpc-id,Values=$VpcId" "Name=association.main,Values=true" \
+            --query 'RouteTables[0].RouteTableId' --output text)
+
+        KafkaBootstrapServers=$(aws cloudformation describe-stacks \
+          --stack-name banking-portfolio-core \
+          --query "Stacks[0].Outputs[?ExportName=='banking-portfolio-core:KafkaBroker'].OutputValue" \
+          --output text)
+
+        NOW=$(date +'%Y-%m-%dT%H:%M:%S')
+
+        mvn clean
+
+        sam build --debug
+
+        sam deploy \
+          --stack-name banking-portfolio-card-lambda \
+          --s3-bucket ${{ env.S3_BUCKET }} \
+          --no-confirm-changeset \
+          --no-fail-on-empty-changeset \
+          --region us-east-1 \
+          --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND \
+          --parameter-overrides \
+            DeploymentEnv=prod \
+            Architecture=x86_64 \
+            AccountServiceURL="$ACCOUNT_URL" \
+            VpcId=$VpcId \
+            KafkaSubnetId=$SubnetId \
+            LambdaSecurityGroupId=$SGId \
+            PrivateRouteTableId=$PrivateRouteTableId \
+            FrontendIpAddress=$FRONTEND_IP \
+            FrontendCname=$FRONTEND_CNAME \
+            KafkaBootstrapServers=$KafkaBootstrapServers \
+            DeployTimestamp=$NOW \
+          --debug
+
     # - name: Notify deployment success
     #   if: success()
     #   uses: slackapi/slack-github-action@v1
@@ -842,68 +1104,113 @@ jobs:
     #     SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
 
 
-  deploy-monitoring:
-    needs: deploy-infrastructure-eb
-    runs-on: ubuntu-latest
-    # environment: production
-    steps:
-      - uses: actions/checkout@v4
+  # deploy-monitoring:
+  #   # if: false
+  #   if: (github.ref == 'refs/heads/feature/main' || github.ref == 'refs/heads/feature/sprint1-setup' || github.ref == 'refs/heads/feature/sprint2' || github.ref == 'refs/heads/feature/sprint3' || github.ref == 'refs/heads/feature/sprint4') && github.event_name == 'push'
+  #   # needs: deploy-application
+  #   runs-on: ubuntu-latest
+  #   # environment: production
+  #   steps:
+  #     - uses: actions/checkout@v4
 
-      - name: Upload monitoring configs to S3
-        run: |
-          aws s3 cp monitoring/prometheus-template.yml s3://banking-portfolio-artifacts/prometheus-template.yml
-          aws s3 cp monitoring/loki-config-template.yaml s3://banking-portfolio-artifacts/loki-config-template.yaml
-          aws s3 cp monitoring/promtail-config-template.yml s3://banking-portfolio-artifacts/promtail-config-template.yml
+  #     - name: Configure AWS credentials
+  #       uses: aws-actions/configure-aws-credentials@v4
+  #       with:
+  #         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  #         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  #         aws-region: ${{ env.AWS_REGION }}
 
-      - name: Get VPC and public subnet
-        id: vpc_and_public_subnet_ids
-        run: |
-          vpc_id=$(aws ec2 describe-vpcs \
-            --region ${{ env.AWS_REGION }} \
-            --query 'Vpcs[0].VpcId' --output text)
+  #     - name: Upload monitoring configs to S3
+  #       run: |
+  #         aws s3 cp monitoring/templates/prometheus-template.yml s3://banking-portfolio-artifacts/prometheus-template.yml
+  #         aws s3 cp monitoring/templates/loki-config-template.yml s3://banking-portfolio-artifacts/loki-config-template.yml
+  #         aws s3 cp monitoring/templates/promtail-config-template.yml s3://banking-portfolio-artifacts/promtail-config-template.yml
 
-          public_subnet_id=$(aws ec2 describe-subnets \
-            --region ${{ env.AWS_REGION }} \
-            --filters "Name=vpc-id,Values=$vpc_id" "Name=map-public-ip-on-launch,Values=true" \
-            --query "Subnets[?AvailabilityZone=='${{ env.AWS_REGION }}a'].SubnetId" \
-            --output text | head -n 1)
+  #     - name: Get VPC and public subnet
+  #       id: vpc_and_public_subnet_ids
+  #       run: |
+  #         vpc_id=$(aws ec2 describe-vpcs \
+  #           --region ${{ env.AWS_REGION }} \
+  #           --query 'Vpcs[0].VpcId' --output text)
+
+  #         public_subnet_id=$(aws ec2 describe-subnets \
+  #           --region ${{ env.AWS_REGION }} \
+  #           --filters "Name=vpc-id,Values=$vpc_id" "Name=map-public-ip-on-launch,Values=true" \
+  #           --query "Subnets[?AvailabilityZone=='${{ env.AWS_REGION }}a'].SubnetId" \
+  #           --output text | head -n 1)
           
-          if [ -z "$public_subnet_id" ]; then
-            echo "Error: No public subnet found in VPC $vpc_id" >&2
-            exit 1
-          fi
+  #         if [ -z "$public_subnet_id" ]; then
+  #           echo "Error: No public subnet found in VPC $vpc_id" >&2
+  #           exit 1
+  #         fi
 
-          echo "vpc_id=${vpc_id}" >> "${GITHUB_OUTPUT}"
-          echo "public_subnet_id=${public_subnet_id}" >>  "${GITHUB_OUTPUT}"
+  #         echo "vpc_id=${vpc_id}" >> "${GITHUB_OUTPUT}"
+  #         echo "public_subnet_id=${public_subnet_id}" >>  "${GITHUB_OUTPUT}"
 
-      - name: Deploy Monitoring Stack
-        uses: aws-actions/aws-cloudformation-github-deploy@v1.2.0
-        with:
-          name: banking-portfolio-monitoring
-          template: infrastructure/infrastructure-monitoring.yml
-          capabilities: CAPABILITY_IAM
-          parameter-overrides: >
-            VpcId=${{ steps.vpc_and_public_subnet_ids.outputs.vpc_id }},
-            PublicSubnetId=${{ steps.vpc_and_public_subnet_ids.outputs.public_subnet_id }}
-          no-fail-on-empty-changeset: "1"
+  #     # - name: Delete old monitoring stack
+  #     #   run: |
+  #     #     aws cloudformation delete-stack \
+  #     #       --stack-name banking-portfolio-monitoring \
+  #     #       --region us-east-1
+  #     #     aws cloudformation wait stack-delete-complete \
+  #     #       --stack-name banking-portfolio-monitoring \
+  #     #       --region us-east-1
 
-      - name: Wait for Grafana
-        run: |
-          GRAFANA_IP=$(aws cloudformation describe-stacks \
-            --stack-name banking-portfolio-monitoring \
-            --query 'Stacks[0].Outputs[?OutputKey==`GrafanaUrl`].OutputValue' \
-            --output text | cut -d'/' -f3 | cut -d':' -f1)
-          until curl -s http://$GRAFANA_IP:3000/api/health; do
-            echo "Waiting for Grafana..."; sleep 15; done
-          echo "Grafana is ready at http://$GRAFANA_IP:3000"
+  #     - name: Deploy Monitoring Stack
+  #       uses: aws-actions/aws-cloudformation-github-deploy@v1.2.0
+  #       with:
+  #         name: banking-portfolio-monitoring
+  #         template: infrastructure/infrastructure-monitoring.yml
+  #         capabilities: CAPABILITY_IAM
+  #         parameter-overrides: >
+  #           VpcId=${{ steps.vpc_and_public_subnet_ids.outputs.vpc_id }},
+  #           PublicSubnetId=${{ steps.vpc_and_public_subnet_ids.outputs.public_subnet_id }}
+  #         no-fail-on-empty-changeset: "1"
 
-      - name: Update EB with Zipkin URL
-        run: |
-          ZIPKIN_BASE_URL=$(aws cloudformation describe-stacks --stack-name banking-portfolio-monitoring \
-            --query "Stacks[0].Outputs[?OutputKey=='banking-portfolio-monitoring:ZipkinUrl'].OutputValue" --output text)
+  #     # - name: Wait for Grafana
+  #     #   run: |
+  #     #     GRAFANA_IP=$(aws cloudformation describe-stacks \
+  #     #       --stack-name banking-portfolio-monitoring \
+  #     #       --query 'Stacks[0].Outputs[?OutputKey==`GrafanaUrl`].OutputValue' \
+  #     #       --output text | cut -d'/' -f3 | cut -d':' -f1)
+  #     #     until curl -s http://$GRAFANA_IP:3000/api/health; do
+  #     #       echo "Waiting for Grafana..."; sleep 15; done
+  #     #     echo "Grafana is ready at http://$GRAFANA_IP:3000"
 
-          aws elasticbeanstalk update-environment --environment-name banking-env \
-            --option-settings "Namespace=aws:elasticbeanstalk:application:environment,OptionName=ZIPKIN_BASE_URL,Value=$ZIPKIN_BASE_URL"
+  #     - name: Wait for Grafana
+  #       run: |
+  #         GRAFANA_IP=$(aws cloudformation describe-stacks \
+  #           --stack-name banking-portfolio-monitoring \
+  #           --query 'Stacks[0].Outputs[?OutputKey==`GrafanaUrl`].OutputValue' \
+  #           --output text | sed 's|http://||' | sed 's|:3000||')
 
-          aws elasticbeanstalk update-environment --environment-name account-env \
-            --option-settings "Namespace=aws:elasticbeanstalk:application:environment,OptionName=ZIPKIN_BASE_URL,Value=$ZIPKIN_BASE_URL"
+  #         echo "Waiting for Grafana at $GRAFANA_IP:3000"
+
+  #         timeout=600  # 10 minutes
+  #         interval=10
+  #         elapsed=0
+
+  #         while [ $elapsed -lt $timeout ]; do
+  #           if curl -s --connect-timeout 5 http://$GRAFANA_IP:3000/api/health | grep -q "ok"; then
+  #             echo "Grafana is healthy!"
+  #             echo "Access at http://$GRAFANA_IP:3000"
+  #             exit 0
+  #           fi
+  #           echo "Not ready yet... retrying in $interval seconds"
+  #           sleep $interval
+  #           elapsed=$((elapsed + interval))
+  #         done
+
+  #         echo "Error: Grafana failed to become healthy"
+  #         exit 1
+
+  #     - name: Update EB with Zipkin URL
+  #       run: |
+  #         ZIPKIN_BASE_URL=$(aws cloudformation describe-stacks --stack-name banking-portfolio-monitoring \
+  #           --query "Stacks[0].Outputs[?OutputKey=='ZipkinUrl'].OutputValue" --output text)
+
+  #         aws elasticbeanstalk update-environment --environment-name banking-env \
+  #           --option-settings "Namespace=aws:elasticbeanstalk:application:environment,OptionName=ZIPKIN_BASE_URL,Value=$ZIPKIN_BASE_URL"
+
+  #         aws elasticbeanstalk update-environment --environment-name account-env \
+  #           --option-settings "Namespace=aws:elasticbeanstalk:application:environment,OptionName=ZIPKIN_BASE_URL,Value=$ZIPKIN_BASE_URL"

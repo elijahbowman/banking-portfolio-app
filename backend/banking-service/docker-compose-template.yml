@@ -1,0 +1,28 @@
+version: '3.8'
+services:
+  banking-service:
+    image: ${DOCKERHUB_USERNAME}/banking-service:latest
+    container_name: banking-service
+    ports:
+      - "80:8080"
+    env_file:
+      - .env
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  alloy:
+    image: grafana/alloy:latest
+    container_name: banking-alloy
+    volumes:
+      - ./config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command: run --server.http.listen-addr=0.0.0.0:9080 /etc/alloy/config.alloy
+    environment:
+      - LOKI_URL={LOKI_BASE_URL}/loki/api/v1/push
+    depends_on:
+      - banking-service

@@ -110,6 +110,12 @@ Resources:
       Name: /banking/frontend/FRONTEND_URL
       Type: String
       Value: !Sub http://${FrontendEnvironment.EndpointURL}
+  AccountServiceUrlSSMParam:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /banking/backend/account-service/ACCOUNT_SERVICE_URL
+      Type: String
+      Value: !Sub http://${AccountEnvironment.EndpointURL}
   BankingLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:

@@ -5,9 +5,9 @@ spring:
     exclude: org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:host.docker.internal:9092}
-#  cloud:
-#    function:
-#      definition: lambdaRouter
+  cloud:
+    function:
+      definition: ${SPRING_CLOUD_FUNCTION_DEFINITION}
 
 spring.cloud.aws:
   dynamodb:

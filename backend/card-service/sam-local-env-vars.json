@@ -2,5 +2,9 @@
   "CardServiceAPIFunction": {
     "SPRING_PROFILES_ACTIVE": "lambda-local",
     "spring.cloud.function.instantiate-on-startup": "true"
+  },
+  "CardServiceAccountCreatedListenerFunction": {
+    "SPRING_PROFILES_ACTIVE": "lambda-local",
+    "spring.cloud.function.instantiate-on-startup": "true"
   }
 }

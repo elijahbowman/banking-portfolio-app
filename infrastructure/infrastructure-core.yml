@@ -263,3 +263,11 @@ Outputs:
     Value: !Ref ArtifactsBucket
     Export:
       Name: !Sub ${AWS::StackName}:ArtifactsBucketName
+  VpcId:
+    Value: !Ref VpcId
+    Export:
+      Name: !Sub "${AWS::StackName}:VpcId"
+  KafkaSubnetId:
+    Value: !Ref SubnetId1
+    Export:
+      Name: !Sub "${AWS::StackName}:KafkaSubnetId"

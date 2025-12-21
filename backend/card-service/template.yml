@@ -1,10 +1,12 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Transform: AWS::Serverless-2016-10-31
+Transform:
+  - AWS::Serverless-2016-10-31
+  - AWS::LanguageExtensions
 Description: Card Service - Serverless (Lambda + API Gateway)
 
 Globals:
   Function:
-    Timeout: 30
+    Timeout: 90
     MemorySize: 1024
     Runtime: java17
 #    Architectures: [x86_64]
@@ -13,7 +15,8 @@ Globals:
       Variables:
         SPRING_PROFILES_ACTIVE: lambda
         DEPENDENCY_CHECK_SKIP: ''
-        JAVA_TOOL_OPTIONS: -XX:+TieredCompilation -XX:TieredStopAtLevel=1
+        JAVA_TOOL_OPTIONS: !Sub "-XX:+TieredCompilation -XX:TieredStopAtLevel=1"
+#        JAVA_TOOL_OPTIONS: !Sub "-XX:+TieredCompilation -XX:TieredStopAtLevel=1 -Daccount.service.url=http://${AccountServiceURL}"
         MAIN_CLASS: com.portfolio.banking.cardservice.CardServiceApplication
 
 Parameters:
@@ -27,10 +30,13 @@ Parameters:
 #    Default: card-service-0.0.1-SNAPSHOT-lambda.jar
     Default: card-service-lambda.jar
     Description: Name of the shaded JAR in target/
-  Environment:
+  DeploymentEnv:
     Type: String
     Default: dev
     AllowedValues: [dev, prod]
+  AccountServiceURL:
+    Type: String
+    Default: host.docker.internal:8081
   KafkaBootstrapServers:
     Type: String
     Default: host.docker.internal:9092
@@ -57,13 +63,37 @@ Parameters:
   VpcSecurityGroupId:
     Type: String
     Default: sg-local-dev  # Dev dummy
+  FrontendIpAddress:
+    Type: String
+    Default: http://localhost:5173  # Local fallback
+  FrontendCname:
+    Type: String
+    Default: http://localhost:80
 
-Conditions:
-  IsDev: !Equals [ !Ref Environment, dev ]
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC ID for Lambda VPC config
+    # No Default — required or provide dummy
+  KafkaSubnetId:
+    Type: AWS::EC2::Subnet::Id
+  LambdaSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+
+  PrivateRouteTableId:
+    Type: String
+
+  DeployTimestamp:
+    Type: String
+
+#Conditions:
+#  IsDev: !Equals [ !Ref DeploymentEnv, dev ]
+#  IsProd: !Equals [ !Ref DeploymentEnv, prod ]
 
 Resources:
   CardServiceAPIFunction:
     Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: makefile
     Properties:
       Handler: org.springframework.cloud.function.adapter.aws.FunctionInvoker::handleRequest
 #      CodeUri: !Sub "target/${ShadedJarName}"
@@ -71,78 +101,162 @@ Resources:
       Role: !GetAtt LambdaExecutionRole.Arn
       Environment:
         Variables:
-          spring.cloud.function.definition: lambdaRouter
-          AWS_DYNAMODB_ENDPOINT: !ImportValue banking-portfolio-core:DynamoDBTable
+          SPRING_CLOUD_FUNCTION_DEFINITION: lambdaRouter
+#          spring.cloud.function.definition: lambdaRouter
           MAIN_CLASS: com.portfolio.banking.cardservice.CardServiceApplication
-          ACCOUNT_SERVICE_URL:
-            Fn::If: [isDev, !Ref "AWS::NoValue", !ImportValue "banking-portfolio-eb:AccountEnvironmentURL"]
+          ACCOUNT_SERVICE_URL: !Ref AccountServiceURL
+#          ACCOUNT_SERVICE_URL: !Sub '{{resolve:ssm-secure:/banking/backend/account-service/ACCOUNT_SERVICE_URL}}'
       Events:
         IssueVCN:
-          Type: Api
+#          Type: Api
+          Type: HttpApi
           Properties:
             Path: /cards/vcn
             Method: post
-            RestApiId: !Ref CardServiceApi
+#            RestApiId: !Ref CardServiceApi
+            ApiId: !Ref CardServiceApi
+            PayloadFormatVersion: "1.0"
         GetRealCard:
-          Type: Api
+#          Type: Api
+          Type: HttpApi
           Properties:
             Path: /cards/real
             Method: get
-            RestApiId: !Ref CardServiceApi
+#            RestApiId: !Ref CardServiceApi
+            ApiId: !Ref CardServiceApi
+            PayloadFormatVersion: "1.0"
         GetVCNs:
-          Type: Api
+#          Type: Api
+          Type: HttpApi
           Properties:
             Path: /cards/vcns
             Method: get
-            RestApiId: !Ref CardServiceApi
+#            RestApiId: !Ref CardServiceApi
+            ApiId: !Ref CardServiceApi
+            PayloadFormatVersion: "1.0"
 
   CardServiceAccountCreatedListenerFunction:
     Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: makefile
     Properties:
+      VpcConfig: # ← REQUIRED for VPC access
+        SecurityGroupIds:
+          - !Ref LambdaSecurityGroupId
+        SubnetIds:
+          - !Ref KafkaSubnetId
       Handler: org.springframework.cloud.function.adapter.aws.FunctionInvoker::handleRequest
 #      CodeUri: !Sub "target/${ShadedJarName}"
       CodeUri: .
       Role: !GetAtt LambdaExecutionRole.Arn
       Environment:
         Variables:
-          spring.cloud.function.definition: accountCreated
-          AWS_DYNAMODB_ENDPOINT: !ImportValue banking-portfolio-core:DynamoDBTable
+          SPRING_CLOUD_FUNCTION_DEFINITION: accountCreated
           MAIN_CLASS: com.portfolio.banking.cardservice.CardServiceApplication
       Events:
+#        AccountCreatedDev:
+#          Condition: IsDev
+#          Type: SelfManagedKafka
+#          Properties:
+#            KafkaBootstrapServers:
+#              - !Ref KafkaBootstrapServers
+#            Topics:
+#              - !Ref KafkaTopic
+#            ConsumerGroupId: !Ref ConsumerGroupId
+#            StartingPosition: LATEST
+#            BatchSize: 10
+#            MaximumBatchingWindowInSeconds: 5
+##            SourceAccessConfigurations:
+##              - Type: VPC_SUBNET
+##                URI: !Ref VpcSubnetId
+##              - Type: VPC_SECURITY_GROUP
+##                URI: !Ref VpcSecurityGroupId
+#            SourceAccessConfigurations: # ← REQUIRED when VpcConfig present
+#              - Type: VPC_SUBNET
+#                URI: !Ref KafkaSubnetId
+#              - Type: VPC_SECURITY_GROUP
+#                URI: !Ref LambdaSecurityGroupId
         AccountCreated:
-#          Type: Kafka
           Type: SelfManagedKafka
           Properties:
-            BootstrapServers: !If
-              - IsDev
+#            KafkaBootstrapServers:
+#              - Fn::If: [IsProd, Fn::ImportValue: !Ref KafkaBootstrapServersExportName, Fn::ImportValue: !Ref KafkaBootstrapServersExportName]
+            KafkaBootstrapServers:
+#              - !ImportValue banking-portfolio-core:KafkaBroker
               - !Ref KafkaBootstrapServers
-              - Fn::ImportValue: !Ref KafkaBootstrapServersExportName
             Topics:
               - !Ref KafkaTopic
             ConsumerGroupId: !Ref ConsumerGroupId
             StartingPosition: LATEST
             BatchSize: 10
             MaximumBatchingWindowInSeconds: 5
-            SourceAccessConfigurations: !If
-            - IsDev
-            - []  # No auth/VPC local
-            -
-              - Type: !Ref KafkaAuthType
-                URI: !Ref KafkaBootstrapServers
+#            SourceAccessConfigurations:
+#              - Type: VPC_SUBNET
+#                URI: !Ref VpcSubnetId
+#              - Type: VPC_SECURITY_GROUP
+#                URI: !Ref VpcSecurityGroupId
+            SourceAccessConfigurations: # ← REQUIRED when VpcConfig present
               - Type: VPC_SUBNET
-                URI: !Ref VpcSubnetId
+                URI: !Ref KafkaSubnetId
               - Type: VPC_SECURITY_GROUP
-                URI: !Ref VpcSecurityGroupId
+                URI: !Ref LambdaSecurityGroupId
+
+#  CardServiceApi:
+#    Type: AWS::Serverless::Api
+#    Properties:
+#      StageName: Prod
+#      Cors:
+#        AllowOrigin: "'*'"
+#        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,Origin,Accept'"
+#        AllowMethods: "'GET,POST,OPTIONS,HEAD'"
+#    Name: !Sub "${AWS::StackName}-api"
+
+  HttpApiLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/vendedlogs/projects/${AWS::StackName}-http-api"
+      RetentionInDays: 7
+
+  HttpApiLogGroupPolicy:
+    Type: AWS::Logs::ResourcePolicy
+    Properties:
+      PolicyName: !Sub "${AWS::StackName}-LogPolicy"
+      PolicyDocument: !Sub |
+        {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": { "Service": "apigateway.amazonaws.com" },
+              "Action": [
+                "logs:CreateLogStream",
+                "logs:PutLogEvents"
+              ],
+              "Resource": "${HttpApiLogGroup.Arn}:*"
+            }
+          ]
+        }
 
   CardServiceApi:
-    Type: AWS::Serverless::Api
+    Type: AWS::Serverless::HttpApi
     Properties:
       StageName: Prod
-      Cors:
-        AllowOrigin: "'*'"
-        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization'"
-        AllowMethods: "'GET,POST,OPTIONS'"
-    Name: !Sub "${AWS::StackName}-api"
+      AccessLogSettings:
+        DestinationArn: !GetAtt HttpApiLogGroup.Arn
+        # This format string must be a single line
+        Format: '{ "requestId":"$context.requestId", "ip": "$context.identity.sourceIp", "requestTime":"$context.requestTime", "httpMethod":"$context.httpMethod", "routeKey":"$context.routeKey", "status":"$context.status", "protocol":"$context.protocol", "integrationStatus":"$context.integrationStatus", "integrationErrorMessage":"$context.integrationErrorMessage", "integration.error":"$context.integration.error" }'
+      CorsConfiguration:
+        AllowOrigins:
+          - !Ref FrontendIpAddress
+          - !Ref FrontendCname
+        AllowMethods:
+          - GET
+          - POST
+          - OPTIONS
+        AllowHeaders:
+          - Content-Type
+          - Authorization
+        AllowCredentials: true  # Optional
 
   LambdaExecutionRole:
     Type: AWS::IAM::Role
@@ -156,6 +270,7 @@ Resources:
             Action: sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
       Policies:
         - PolicyName: DynamoDBAccess
           PolicyDocument:
@@ -163,51 +278,116 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
-                  - dynamodb:*
+                  - dynamodb:DescribeTable
+                  - dynamodb:PutItem
+                  - dynamodb:GetItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:DeleteItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
 #                Resource: !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/*!ImportValue banking-portfolio-core:DynamoDBTable*"
-                Resource: "*"
+                Resource:
+                  - !GetAtt CardsTable.Arn
+                  - !GetAtt VirtualCardTokensTable.Arn
+                  # Grant access to the GSI as well
+                  - !Sub "${VirtualCardTokensTable.Arn}/index/*"
         - PolicyName: KafkaAccess
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
               - Effect: Allow
                 Action:
-                  - kafka:*
+                  - kafka-cluster:Connect
+                  - kafka-cluster:DescribeTopic
+                  - kafka-cluster:ReadData
+                  - kafka-cluster:DescribeGroup
                 Resource: '*'
-
-  Resources:
-    CardsTable:
-      Type: AWS::DynamoDB::Table
-      Properties:
-        TableName: Cards
-        AttributeDefinitions:
-          - AttributeName: cardId
-            AttributeType: S
-        KeySchema:
-          - AttributeName: cardId
-            KeyType: HASH
+        - PolicyName: VPCAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ec2:CreateNetworkInterface
+                  - ec2:DescribeNetworkInterfaces
+                  - ec2:DeleteNetworkInterface
+                  - ec2:DescribeSubnets
+                  - ec2:DescribeSecurityGroups
+                  - ec2:DescribeVpcs
+                Resource: "*"
+  CardsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: Cards
+      AttributeDefinitions:
+        - AttributeName: cardId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: cardId
+          KeyType: HASH
       BillingMode: PAY_PER_REQUEST
 
-    VirtualCardTokensTable:
-      Type: AWS::DynamoDB::Table
-      Properties:
-        TableName: VirtualCardTokens
-        AttributeDefinitions:
-          - AttributeName: tokenId
-            AttributeType: S
-          - AttributeName: realCardId
-            AttributeType: S
-        KeySchema:
-          - AttributeName: tokenId
-            KeyType: HASH
-        GlobalSecondaryIndexes:
-          - IndexName: RealCardIdIndex
-            KeySchema:
-              - AttributeName: realCardId
-                KeyType: HASH
-            Projection:
-              ProjectionType: ALL
-        BillingMode: PAY_PER_REQUEST
+  VirtualCardTokensTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: VirtualCardTokens
+      AttributeDefinitions:
+        - AttributeName: tokenId
+          AttributeType: S
+        - AttributeName: realCardId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: tokenId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: RealCardIdIndex
+          KeySchema:
+            - AttributeName: realCardId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      BillingMode: PAY_PER_REQUEST
+
+  DynamoDBEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.dynamodb"
+      VpcId: !Ref VpcId
+      VpcEndpointType: Gateway
+      RouteTableIds:
+        - !Ref PrivateRouteTableId
+  STSEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.sts
+      VpcId: !Ref VpcId
+      SubnetIds:
+        - !Ref KafkaSubnetId
+      SecurityGroupIds:
+        - !Ref EndpointSecurityGroup
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: true
+  LambdaEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.lambda
+      VpcId: !Ref VpcId
+      SubnetIds:
+        - !Ref KafkaSubnetId
+      SecurityGroupIds:
+        - !Ref EndpointSecurityGroup
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: true
+  EndpointSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow inbound HTTPS from Lambda
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
 
 Outputs:
   CardServiceApiUrl:

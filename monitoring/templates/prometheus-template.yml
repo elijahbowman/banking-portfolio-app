@@ -5,7 +5,7 @@ scrape_configs:
   - job_name: 'banking-service'
     metrics_path: /actuator/prometheus
     static_configs:
-      - targets: ['{BANKING_SERVICE_URL}:8080']
+      - targets: ['{BANKING_SERVICE_URL}']
         labels:
           application: banking-service
           job: banking-service
@@ -13,7 +13,7 @@ scrape_configs:
   - job_name: 'account-service'
     metrics_path: /actuator/prometheus
     static_configs:
-      - targets: ['{ACCOUNT_SERVICE_URL}:8081']
+      - targets: ['{ACCOUNT_SERVICE_URL}']
         labels:
           application: account-service
           job: account-service
@@ -22,7 +22,7 @@ scrape_configs:
   #   metrics_path: /Prod/actuator/prometheus
   #   scheme: https
   #   static_configs:
-  #     - targets: ['{CARD_SERVICE_URL}:8082']
+  #     - targets: ['{CARD_SERVICE_URL}']
   #       labels:
   #         application: card-service
 

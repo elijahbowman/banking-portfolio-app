@@ -1,6 +1,7 @@
 package com.portfolio.banking.cardservice.infrastructure.config;
 
 import jakarta.annotation.PostConstruct;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
@@ -9,6 +10,7 @@ import software.amazon.awssdk.services.dynamodb.model.DescribeTableRequest;
 
 @Configuration
 @Profile("lambda")
+@Slf4j
 public class DynamoDBInitializer {
     private final DynamoDbClient client;
     private final DynamoDbEnhancedClient enhancedClient;
@@ -20,8 +22,12 @@ public class DynamoDBInitializer {
 
     @PostConstruct
     public void initializeClient() {
-        client.describeTable(DescribeTableRequest.builder().tableName("Cards").build());
+        try {
+            client.describeTable(DescribeTableRequest.builder().tableName("Cards").build());
 
-        client.describeTable(DescribeTableRequest.builder().tableName("VirtualCardTokens").build());
+            client.describeTable(DescribeTableRequest.builder().tableName("VirtualCardTokens").build());
+        } catch (Exception e) {
+            log.error("CRITICAL: DynamoDB table verification failed!", e);
+        }
     }
 }

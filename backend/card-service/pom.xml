@@ -259,6 +259,8 @@
 						<configuration>
 							<finalName>card-service-lambda</finalName>
 							<createDependencyReducedPom>false</createDependencyReducedPom>
+							<shadedArtifactAttached>false</shadedArtifactAttached>
+<!--							<shadedClassifierName></shadedClassifierName>-->
 							<artifactSet>
 								<excludes>
 									<exclude>org.apache.tomcat.embed:*</exclude>

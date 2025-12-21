@@ -48,15 +48,26 @@ services:
     networks:
       - banking-network
 
-  promtail:
-    image: grafana/promtail:latest
-    container_name: banking-promtail
+  # promtail:
+  #   image: grafana/promtail:latest
+  #   container_name: banking-promtail
+  #   volumes:
+  #     - ./monitoring/promtail-config.yml:/etc/promtail/config.yml
+  #     - /var/run/docker.sock:/var/run/docker.sock
+  #     - ./logs:/logs
+  #   command: -config.file=/etc/promtail/config.yml
+  #   depends_on: [loki]
+  #   networks:
+  #     - banking-network
+
+  alloy:
+    image: grafana/alloy:latest
+    container_name: banking-alloy
+    ports: [9080:9080]  # Optional (Alloy UI/metrics)
     volumes:
-      - ./monitoring/promtail-config.yml:/etc/promtail/config.yml
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ./logs:/logs
-    command: -config.file=/etc/promtail/config.yml
-    depends_on: [loki]
+      - ./monitoring/alloy.config:/etc/alloy/config.alloy
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command: run --server.http.listen-addr=0.0.0.0:9080 /etc/alloy/config.alloy
     networks:
       - banking-network
 

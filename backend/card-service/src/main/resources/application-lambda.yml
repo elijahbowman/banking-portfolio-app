@@ -1,13 +1,19 @@
 spring:
   application:
     name: card-service
+#  config:
+#    import: "aws-parameterstore:/banking/backend/account-service/"
+  main:
+    banner-mode: off
+  autoconfigure:
+    exclude: org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
 #  main:
 #    web-application-type: none   # Critical for Lambda
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:9092}
   cloud:
     function:
-      definition: issueVCN
+      definition: ${SPRING_CLOUD_FUNCTION_DEFINITION}
     aws:
       region:
         static: ${AWS_REGION:us-east-1}

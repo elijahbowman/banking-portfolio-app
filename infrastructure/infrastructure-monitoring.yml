@@ -14,18 +14,18 @@ Parameters:
     Default: ami-052064a798f08f0d3
   InstanceType:
     Type: String
-    Default: t3.medium
+    Default: t3.small
   BankingServiceUrlExportName:
     Type: String
-    Default: banking-portolio-BankingEnvironmentUrl
+    Default: banking-portfolio-eb:BankingEnvironmentUrl
     Description: URL of banking-service
   AccountServiceUrlExportName:
     Type: String
-    Default: banking-portolio-AccountEnvironmentUrl
+    Default: banking-portfolio-eb:AccountEnvironmentUrl
     Description: URL of account-service
   KafkaBrokerExportName:
     Type: String
-    Default: banking-portolio-core:KafkaBroker
+    Default: banking-portfolio-core:KafkaBroker
     Description: Kafka brokers (comma-separated)
 
 Resources:
@@ -88,6 +88,16 @@ Resources:
       ImageId: !Ref AmiId
       SecurityGroupIds:
         - !Ref MonitoringSecurityGroup
+        - !ImportValue banking-portfolio-core:EBSecurityGroupId
+    # Properties:
+    #   InstanceType: !Ref InstanceType
+    #   ImageId: !Ref AmiId
+    #   NetworkInterfaces:
+    #     - AssociatePublicIpAddress: true
+    #       DeviceIndex: "0"
+    #       SubnetId: !Ref PublicSubnetId
+    #       GroupSet:
+    #         - !Ref MonitoringSecurityGroup
       # KeyName: banking-portfolio-key  # Optional: create in AWS
       UserData:
         Fn::Base64: 
@@ -97,9 +107,12 @@ Resources:
               yum update -y
 
               # Install and setup docker
-              amazon-linux-extras install docker -y
-              service docker start
-              usermod -a -G docker ec2-user
+              # amazon-linux-extras install docker -y
+              # service docker start
+              # usermod -a -G docker ec2-user
+              yum install docker -y
+              systemctl enable docker
+              systemctl start docker
 
               # Install and setup docker-compose
               curl -L "https://github.com/docker/compose/releases/download/v2.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
@@ -133,7 +146,17 @@ Resources:
                     - GF_SECURITY_ADMIN_PASSWORD=admin
                   volumes:
                     - grafana_data:/var/lib/grafana
+                  # healthcheck:
+                  #   test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+                  #   interval: 30s
+                  #   timeout: 10s
+                  #   retries: 10
+                  #   start_period: 60s
                   depends_on: [prometheus, loki]
+                    # prometheus:
+                    #   condition: service_healthy
+                    # loki:
+                    #   condition: service_healthy
                   networks:
                     - banking-network
 
@@ -144,18 +167,6 @@ Resources:
                     - /home/ec2-user/monitoring/loki-config.yml:/etc/loki/local-config.yaml
                   ports: [3100:3100]
                   command: -config.file=/etc/loki/local-config.yaml
-                  networks:
-                    - banking-network
-
-                promtail:
-                  image: grafana/promtail:latest
-                  container_name: banking-promtail
-                  volumes:
-                    - /home/ec2-user/monitoring/promtail-config.yml:/etc/promtail/config.yml
-                    - /var/run/docker.sock:/var/run/docker.sock
-                    - ./logs:/logs
-                  command: -config.file=/etc/promtail/config.yml
-                  depends_on: [loki]
                   networks:
                     - banking-network
 
@@ -199,24 +210,23 @@ Resources:
               mkdir -p /home/ec2-user/monitoring
 
               # Download configs from S3 (upload via CI/CD)
-              aws s3 cp s3://banking-portfolio-artifacts/prometheus-template.yml /home/ec2-user/monitoring/prometheus-template.yml
-              aws s3 cp s3://banking-portfolio-artifacts/loki-config-template.yaml /home/ec2-user/monitoring/loki-config-template.yaml
-              aws s3 cp s3://banking-portfolio-artifacts/promtail-config-template.yml /home/ec2-user/monitoring/promtail-config-template.yml
+              aws s3 cp s3://banking-portfolio-artifacts/prometheus-template.yml /home/ec2-user/monitoring/prometheus.yml
+              aws s3 cp s3://banking-portfolio-artifacts/loki-config-template.yml /home/ec2-user/monitoring/loki-config.yml
 
               # Replace placeholders with dynamic URLs
               sed -i "s|{BANKING_SERVICE_URL}|${BankingServiceUrl}|g" /home/ec2-user/monitoring/prometheus.yml
               sed -i "s|{ACCOUNT_SERVICE_URL}|${AccountServiceUrl}|g" /home/ec2-user/monitoring/prometheus.yml
-              sed -i "s|{KAFKA_BROKER}|${KafkaBroker}|g" /home/ec2-user/monitoring/docker-compose.monitoring.yml
+              sed -i "s|{KAFKA_BROKER}|${KafkaBroker}|g" /home/ec2-user/docker-compose.monitoring.yml
 
               # Start containers
               /usr/local/bin/docker-compose -f /home/ec2-user/docker-compose.monitoring.yml up -d  >> /home/ec2-user/userdata.log 2>&1
 
             - BankingServiceUrl:
-              Fn::ImportValue: !Ref BankingServiceUrlExportName
-            - AccountServiceUrl:
-              Fn::ImportValue: !Ref AccountServiceUrlExportName
-            - KafkaBroker:
-              Fn::ImportValue: !Ref KafkaBrokerExportName
+                Fn::ImportValue: !Ref BankingServiceUrlExportName
+              AccountServiceUrl:
+                Fn::ImportValue: !Ref AccountServiceUrlExportName
+              KafkaBroker:
+                Fn::ImportValue: !Ref KafkaBrokerExportName
 
       Tags:
         - Key: Name
@@ -229,6 +239,11 @@ Resources:
     Properties:
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: ec2.amazonaws.com
+          Action: sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
 
@@ -241,20 +256,22 @@ Resources:
 Outputs:
   GrafanaUrl:
     Description: Access Grafana Dashboard
-    Value: !Sub http://${MonitoringInstance.PublicIp}:3000
+    Value: !Sub "http://${MonitoringInstance.PublicIp}:3000"
     Export:
-      Name: !Sub ${AWS::StackName}:GrafanaUrl
+      Name: !Sub "${AWS::StackName}:GrafanaUrl"
 
   PrometheusUrl:
     Description: Access Prometheus
-    Value: !Sub http://${MonitoringInstance.PublicIp}:9090
+    Value: !Sub "http://${MonitoringInstance.PublicIp}:9090"
 
   LokiUrl:
     Description: Loki API
-    Value: !Sub http://${MonitoringInstance.PublicIp}:3100
+    Value: !Sub "http://${MonitoringInstance.PublicIp}:3100"
+    Export:
+      Name: !Sub "${AWS::StackName}:LokiUrl"
 
   ZipkinUrl:
-  Description: URL for Zipkin tracing
-  Value: !Sub "http://${MonitoringInstance.PublicIp}:9411"
-  Export:
-      Name: !Sub ${AWS::StackName}:ZipkinUrl
+    Description: URL for Zipkin tracing
+    Value: !Sub "http://${MonitoringInstance.PublicIp}:9411"
+    Export:
+      Name: !Sub "${AWS::StackName}:ZipkinUrl"

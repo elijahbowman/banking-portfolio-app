@@ -9,7 +9,8 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.security.SecureRandom;
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -46,8 +47,8 @@ public class CardService {
                 .realCardId(realCardId)
                 .vcn(vcn)
                 .spendLimit(limit)
-                .expiresAt(LocalDateTime.now().plusDays(30))
-                .createdAt(LocalDateTime.now())
+                .expiresAt(Instant.now().plus(30, ChronoUnit.DAYS))
+                .createdAt(Instant.now())
                 .status("ACTIVE")
                 .build();
 

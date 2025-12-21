@@ -4,18 +4,23 @@ import com.portfolio.banking.cardservice.domain.entity.RealCard;
 import com.portfolio.banking.cardservice.domain.entity.VirtualCardToken;
 import com.portfolio.banking.cardservice.domain.service.CardService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.support.MessageBuilder;
 
 import java.math.BigDecimal;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
 @Configuration
 @RequiredArgsConstructor
+@Slf4j
 public class IssueVCNFunction {
 
     private final CardService cardService;
@@ -86,20 +91,72 @@ public class IssueVCNFunction {
     @Bean
     public Function<Message<Map<String, Object>>, Message<?>> lambdaRouter() {
         return message -> {
-            Map<String, Object> payload = message.getPayload();
-            @SuppressWarnings("unchecked")
-            Map<String, Object> requestContext = (Map<String, Object>) payload.get("requestContext");
-            String path = (String) requestContext.get("path");
+            try {
+                log.info("lambdaRouter received message={}", message);
+                Map<String, Object> payload = message.getPayload();
+                @SuppressWarnings("unchecked")
+                Map<String, Object> requestContext = (Map<String, Object>) payload.get("requestContext");
+                log.info("lambdaRouter requestContext={}", message);
 
-            if (path.endsWith("/cards/real")) {
-                return getRealCard().apply(message);
-            } else if (path.endsWith("/cards/vcns")) {
-                return getVCNs().apply(message);
-            } else if (path.endsWith("/cards/vcn")) {
-                return issueVCN().apply(message);
+                String httpMethod = (String) requestContext.get("httpMethod");
+
+                log.info("lambdaRouter httpMethod={}", httpMethod);
+
+                if ("OPTIONS".equals(httpMethod)) {
+                    return createResponse("", HttpStatus.OK);
+                }
+
+                String path = (String) requestContext.get("path");
+
+                if (path.endsWith("/cards/real")) {
+                    return getRealCard().apply(message);
+                } else if (path.endsWith("/cards/vcns")) {
+                    return getVCNs().apply(message);
+                } else if (path.endsWith("/cards/vcn")) {
+                    return issueVCN().apply(message);
+                }
+
+                throw new IllegalArgumentException("Unknown endpoint: " + path);
+
+            } catch (IllegalArgumentException ex) {
+                System.err.println("It was a NullPointerException.");
+                Map<String, Object> response = new HashMap<>();
+                response.put("message", ex.getMessage());
+                response.put("status", HttpStatus.BAD_REQUEST.value());
+
+                return MessageBuilder.withPayload(response)
+                        .setHeader("statusCode", HttpStatus.BAD_REQUEST.value())
+                        .setHeader("Content-Type", "application/json").build();
+            } catch (IllegalStateException ex) {
+                Map<String, Object> response = new HashMap<>();
+                response.put("message", ex.getMessage());
+                response.put("status", HttpStatus.BAD_REQUEST.value());
+
+                return MessageBuilder.withPayload(response)
+                        .setHeader("statusCode", HttpStatus.BAD_REQUEST.value())
+                        .setHeader("Content-Type", "application/json").build();
+            } catch (Exception ex) {
+                Map<String, Object> response = new HashMap<>();
+                response.put("message", "Internal Server Error");
+                response.put("status", HttpStatus.INTERNAL_SERVER_ERROR.value());
+                return MessageBuilder.withPayload(response)
+                        .setHeader("statusCode", HttpStatus.INTERNAL_SERVER_ERROR.value())
+                        .setHeader("Content-Type", "application/json").build();
             }
-
-            throw new IllegalArgumentException("Unknown endpoint: " + path);
         };
+    }
+
+    /**
+     * Helper to ensure EVERY response contains proper CORS headers.
+     */
+    private Message<?> createResponse(Object payload, HttpStatus status) {
+        return MessageBuilder.withPayload(payload)
+                .setHeader("statusCode", status.value())
+                .setHeader("Content-Type", "application/json")
+                // Essential CORS headers for Lambda Proxy Integration
+                .setHeader("Access-Control-Allow-Origin", "*")
+                .setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
+                .setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization")
+                .build();
     }
 }

@@ -38,7 +38,7 @@ export default function CardDashboard() {
 
       {/* Account ID Form */}
       <form onSubmit={handleSubmit} className="mb-6">
-        <div className="flex gap-2">
+        <div className="flex gap-2 max-[480px]:flex-col">
           <input
             type="text"
             value={accountId}
