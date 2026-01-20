@@ -127,13 +127,41 @@
 		</dependency>
 
 		<dependency>
-			<groupId>io.micrometer</groupId>
-			<artifactId>micrometer-tracing-bridge-brave</artifactId>
+			<groupId>io.opentelemetry.instrumentation</groupId>
+			<artifactId>opentelemetry-spring-boot-starter</artifactId>
+<!--			<scope>provided</scope>-->
 		</dependency>
+
+		<!-- OTLP Exporter: Required to send Traces and Logs to Alloy (Port 4318) -->
 		<dependency>
-			<groupId>io.zipkin.reporter2</groupId>
-			<artifactId>zipkin-reporter-brave</artifactId>
+			<groupId>io.opentelemetry</groupId>
+			<artifactId>opentelemetry-exporter-otlp</artifactId>
 		</dependency>
+
+		<!-- Bridge to send Logback logs into the OTel pipeline -->
+		<dependency>
+			<groupId>io.opentelemetry.instrumentation</groupId>
+			<artifactId>opentelemetry-logback-appender-1.0</artifactId>
+			<version>2.23.0-alpha</version>
+		</dependency>
+
+		<dependency>
+			<groupId>io.opentelemetry.instrumentation</groupId>
+			<artifactId>opentelemetry-logback-mdc-1.0</artifactId>
+			<version>2.23.0-alpha</version>
+			<scope>runtime</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>io.micrometer</groupId>
+			<artifactId>micrometer-tracing-bridge-otel</artifactId>
+		</dependency>
+
+<!--		<dependency>-->
+<!--			<groupId>joda-time</groupId>-->
+<!--			<artifactId>joda-time</artifactId>-->
+<!--			<version>2.12.7</version>-->
+<!--		</dependency>-->
 
 		<dependency>
 			<groupId>org.springframework.cloud</groupId>
@@ -155,8 +183,24 @@
 			<groupId>com.amazonaws</groupId>
 			<artifactId>aws-lambda-java-events</artifactId>
 			<version>3.11.0</version>
-			<scope>test</scope>
+<!--			<scope>test</scope>-->
+<!--			<scope>provided</scope>-->
 		</dependency>
+
+<!--		<dependency>-->
+<!--			<groupId>ch.qos.logback</groupId>-->
+<!--			<artifactId>logback-classic</artifactId>-->
+<!--		</dependency>-->
+		<dependency>
+			<groupId>net.logstash.logback</groupId>
+			<artifactId>logstash-logback-encoder</artifactId>
+			<version>8.0</version>
+		</dependency>
+<!--		<dependency>-->
+<!--			<groupId>org.springframework.boot</groupId>-->
+<!--			<artifactId>spring-boot-starter-logging</artifactId>-->
+<!--		</dependency>-->
+
 	</dependencies>
 
 	<build>
@@ -285,7 +329,7 @@
 								<transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
 									<!-- Note: When using aws-serverless-java-container, the mainClass is typically NOT needed
                                          as Lambda calls your StreamLambdaHandler directly. -->
-									<mainClass>org.springframework.boot.loader.JarLauncher</mainClass>
+<!--									<mainClass>org.springframework.boot.loader.JarLauncher</mainClass>-->
 								</transformer>
 							</transformers>
 						</configuration>
@@ -307,6 +351,14 @@
 				<groupId>org.springframework.cloud</groupId>
 				<artifactId>spring-cloud-dependencies</artifactId>
 				<version>${spring-cloud.version}</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+
+			<dependency>
+				<groupId>io.opentelemetry.instrumentation</groupId>
+				<artifactId>opentelemetry-instrumentation-bom</artifactId>
+				<version>2.23.0</version>
 				<type>pom</type>
 				<scope>import</scope>
 			</dependency>

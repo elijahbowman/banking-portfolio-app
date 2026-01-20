@@ -133,6 +133,7 @@ Resources:
                     - '--config.file=/etc/prometheus/prometheus.yml'
                     - '--storage.tsdb.path=/prometheus'
                     - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+                    - '--web.enable-remote-write-receiver'
                   networks:
                     - banking-network
 
@@ -146,17 +147,33 @@ Resources:
                     - GF_SECURITY_ADMIN_PASSWORD=admin
                   volumes:
                     - grafana_data:/var/lib/grafana
-                  # healthcheck:
-                  #   test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
-                  #   interval: 30s
-                  #   timeout: 10s
-                  #   retries: 10
-                  #   start_period: 60s
+                  # depends_on: [prometheus, loki, alertmanager]
                   depends_on: [prometheus, loki]
-                    # prometheus:
-                    #   condition: service_healthy
-                    # loki:
-                    #   condition: service_healthy
+                  networks:
+                    - banking-network
+
+                alloy:
+                  image: grafana/alloy:latest
+                  container_name: banking-alloy
+                  restart: always
+                  ports:
+                    - "4317:4317"   # OTLP gRPC (Lambda / ADOT)
+                    - "4318:4318"   # OTLP HTTP (Spring Boot 3.x+)
+                    - "9080:9080"   # Alloy UI (Optional)
+                  volumes:
+                    - /home/ec2-user/monitoring/config.alloy:/etc/alloy/config.alloy
+                    - /var/run/docker.sock:/var/run/docker.sock:ro
+                    - alloy_data:/var/lib/alloy/data
+                  command: [
+                    "run",
+                    "--server.http.listen-addr=0.0.0.0:9080",
+                    "--storage.path=/var/lib/alloy/data",
+                    "/etc/alloy/config.alloy"
+                  ]
+                  depends_on:
+                    - prometheus
+                    - loki
+                    - zipkin
                   networks:
                     - banking-network
 
@@ -171,7 +188,7 @@ Resources:
                     - banking-network
 
                 zipkin:
-                  image: openzipkin/zipkin:latest
+                  image: ghcr.io/openzipkin-contrib/zipkin-otel:latest
                   container_name: banking-zipkin
                   ports:
                     - "9411:9411"
@@ -199,6 +216,7 @@ Resources:
 
               volumes:
                 grafana_data:
+                alloy_data:
 
               networks:
                 banking-network:
@@ -212,14 +230,21 @@ Resources:
               # Download configs from S3 (upload via CI/CD)
               aws s3 cp s3://banking-portfolio-artifacts/prometheus-template.yml /home/ec2-user/monitoring/prometheus.yml
               aws s3 cp s3://banking-portfolio-artifacts/loki-config-template.yml /home/ec2-user/monitoring/loki-config.yml
+              aws s3 cp s3://banking-portfolio-artifacts/config-template.alloy /home/ec2-user/monitoring/config.alloy
 
               # Replace placeholders with dynamic URLs
               sed -i "s|{BANKING_SERVICE_URL}|${BankingServiceUrl}|g" /home/ec2-user/monitoring/prometheus.yml
               sed -i "s|{ACCOUNT_SERVICE_URL}|${AccountServiceUrl}|g" /home/ec2-user/monitoring/prometheus.yml
               sed -i "s|{KAFKA_BROKER}|${KafkaBroker}|g" /home/ec2-user/docker-compose.monitoring.yml
+              sed -i "s|{PROMETHEUS_BASE_URL}|http://prometheus:9090|g" /home/ec2-user/monitoring/config.alloy
+              sed -i "s|{ZIPKIN_BASE_URL}|http://zipkin:9411|g" /home/ec2-user/monitoring/config.alloy
+              sed -i "s|{LOKI_BASE_URL}|http://loki:3100|g" /home/ec2-user/monitoring/config.alloy
+
+              # Stop containers (in case running)
+              /usr/local/bin/docker-compose -f /home/ec2-user/docker-compose.monitoring.yml down  >> /home/ec2-user/userdata.log 2>&1
 
               # Start containers
-              /usr/local/bin/docker-compose -f /home/ec2-user/docker-compose.monitoring.yml up -d  >> /home/ec2-user/userdata.log 2>&1
+              /usr/local/bin/docker-compose -f /home/ec2-user/docker-compose.monitoring.yml up -d --build  >> /home/ec2-user/userdata.log 2>&1
 
             - BankingServiceUrl:
                 Fn::ImportValue: !Ref BankingServiceUrlExportName
@@ -275,3 +300,9 @@ Outputs:
     Value: !Sub "http://${MonitoringInstance.PublicIp}:9411"
     Export:
       Name: !Sub "${AWS::StackName}:ZipkinUrl"
+  
+  AlloyUrl:
+    Description: URL for Zipkin tracing
+    Value: !Sub "http://${MonitoringInstance.PublicIp}:4318"
+    Export:
+      Name: !Sub "${AWS::StackName}:AlloyUrl"

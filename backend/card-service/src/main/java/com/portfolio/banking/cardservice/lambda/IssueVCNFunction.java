@@ -119,7 +119,6 @@ public class IssueVCNFunction {
                 throw new IllegalArgumentException("Unknown endpoint: " + path);
 
             } catch (IllegalArgumentException ex) {
-                System.err.println("It was a NullPointerException.");
                 Map<String, Object> response = new HashMap<>();
                 response.put("message", ex.getMessage());
                 response.put("status", HttpStatus.BAD_REQUEST.value());

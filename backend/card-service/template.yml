@@ -16,7 +16,6 @@ Globals:
         SPRING_PROFILES_ACTIVE: lambda
         DEPENDENCY_CHECK_SKIP: ''
         JAVA_TOOL_OPTIONS: !Sub "-XX:+TieredCompilation -XX:TieredStopAtLevel=1"
-#        JAVA_TOOL_OPTIONS: !Sub "-XX:+TieredCompilation -XX:TieredStopAtLevel=1 -Daccount.service.url=http://${AccountServiceURL}"
         MAIN_CLASS: com.portfolio.banking.cardservice.CardServiceApplication
 
 Parameters:
@@ -68,7 +67,13 @@ Parameters:
     Default: http://localhost:5173  # Local fallback
   FrontendCname:
     Type: String
-    Default: http://localhost:80
+    Default: http://localhost
+  AlloyUrl:
+    Type: String
+    Default: http://host.docker.internal:4318
+  OtelExporterOtlpEndpoint:
+    Type: String
+    Default: http://host.docker.internal:4318
 
   VpcId:
     Type: AWS::EC2::VPC::Id
@@ -85,10 +90,6 @@ Parameters:
   DeployTimestamp:
     Type: String
 
-#Conditions:
-#  IsDev: !Equals [ !Ref DeploymentEnv, dev ]
-#  IsProd: !Equals [ !Ref DeploymentEnv, prod ]
-
 Resources:
   CardServiceAPIFunction:
     Type: AWS::Serverless::Function
@@ -96,42 +97,41 @@ Resources:
       BuildMethod: makefile
     Properties:
       Handler: org.springframework.cloud.function.adapter.aws.FunctionInvoker::handleRequest
-#      CodeUri: !Sub "target/${ShadedJarName}"
       CodeUri: .
       Role: !GetAtt LambdaExecutionRole.Arn
       Environment:
         Variables:
           SPRING_CLOUD_FUNCTION_DEFINITION: lambdaRouter
-#          spring.cloud.function.definition: lambdaRouter
           MAIN_CLASS: com.portfolio.banking.cardservice.CardServiceApplication
           ACCOUNT_SERVICE_URL: !Ref AccountServiceURL
 #          ACCOUNT_SERVICE_URL: !Sub '{{resolve:ssm-secure:/banking/backend/account-service/ACCOUNT_SERVICE_URL}}'
+          OTEL_EXPORTER_OTLP_ENDPOINT: !Ref OtelExporterOtlpEndpoint
+          OTEL_SERVICE_NAME: "card-service-api"
+          OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
+          OTEL_BSP_SCHEDULE_DELAY: "10"    # Traces: 10ms delay
+          OTEL_BLRP_SCHEDULE_DELAY: "10"   # Logs: 10ms delay
+          OTEL_METRICS_EXPORTER: "otlp"
+          ALLOY_BASE_URL: !Ref AlloyUrl
       Events:
         IssueVCN:
-#          Type: Api
           Type: HttpApi
           Properties:
             Path: /cards/vcn
             Method: post
-#            RestApiId: !Ref CardServiceApi
             ApiId: !Ref CardServiceApi
             PayloadFormatVersion: "1.0"
         GetRealCard:
-#          Type: Api
           Type: HttpApi
           Properties:
             Path: /cards/real
             Method: get
-#            RestApiId: !Ref CardServiceApi
             ApiId: !Ref CardServiceApi
             PayloadFormatVersion: "1.0"
         GetVCNs:
-#          Type: Api
           Type: HttpApi
           Properties:
             Path: /cards/vcns
             Method: get
-#            RestApiId: !Ref CardServiceApi
             ApiId: !Ref CardServiceApi
             PayloadFormatVersion: "1.0"
 
@@ -146,41 +146,23 @@ Resources:
         SubnetIds:
           - !Ref KafkaSubnetId
       Handler: org.springframework.cloud.function.adapter.aws.FunctionInvoker::handleRequest
-#      CodeUri: !Sub "target/${ShadedJarName}"
       CodeUri: .
       Role: !GetAtt LambdaExecutionRole.Arn
       Environment:
         Variables:
           SPRING_CLOUD_FUNCTION_DEFINITION: accountCreated
           MAIN_CLASS: com.portfolio.banking.cardservice.CardServiceApplication
+          OTEL_EXPORTER_OTLP_ENDPOINT: !Ref OtelExporterOtlpEndpoint
+          OTEL_SERVICE_NAME: "CardServiceAccountCreatedListenerFunction"
+          OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
+          OTEL_BSP_SCHEDULE_DELAY: "10"    # Traces: 10ms delay
+          OTEL_BLRP_SCHEDULE_DELAY: "10"   # Logs: 10ms delay
+          OTEL_METRICS_EXPORTER: "otlp"
+          ALLOY_BASE_URL: !Ref AlloyUrl
       Events:
-#        AccountCreatedDev:
-#          Condition: IsDev
-#          Type: SelfManagedKafka
-#          Properties:
-#            KafkaBootstrapServers:
-#              - !Ref KafkaBootstrapServers
-#            Topics:
-#              - !Ref KafkaTopic
-#            ConsumerGroupId: !Ref ConsumerGroupId
-#            StartingPosition: LATEST
-#            BatchSize: 10
-#            MaximumBatchingWindowInSeconds: 5
-##            SourceAccessConfigurations:
-##              - Type: VPC_SUBNET
-##                URI: !Ref VpcSubnetId
-##              - Type: VPC_SECURITY_GROUP
-##                URI: !Ref VpcSecurityGroupId
-#            SourceAccessConfigurations: # ← REQUIRED when VpcConfig present
-#              - Type: VPC_SUBNET
-#                URI: !Ref KafkaSubnetId
-#              - Type: VPC_SECURITY_GROUP
-#                URI: !Ref LambdaSecurityGroupId
         AccountCreated:
           Type: SelfManagedKafka
           Properties:
-#            KafkaBootstrapServers:
-#              - Fn::If: [IsProd, Fn::ImportValue: !Ref KafkaBootstrapServersExportName, Fn::ImportValue: !Ref KafkaBootstrapServersExportName]
             KafkaBootstrapServers:
 #              - !ImportValue banking-portfolio-core:KafkaBroker
               - !Ref KafkaBootstrapServers
@@ -190,26 +172,11 @@ Resources:
             StartingPosition: LATEST
             BatchSize: 10
             MaximumBatchingWindowInSeconds: 5
-#            SourceAccessConfigurations:
-#              - Type: VPC_SUBNET
-#                URI: !Ref VpcSubnetId
-#              - Type: VPC_SECURITY_GROUP
-#                URI: !Ref VpcSecurityGroupId
             SourceAccessConfigurations: # ← REQUIRED when VpcConfig present
               - Type: VPC_SUBNET
                 URI: !Ref KafkaSubnetId
               - Type: VPC_SECURITY_GROUP
                 URI: !Ref LambdaSecurityGroupId
-
-#  CardServiceApi:
-#    Type: AWS::Serverless::Api
-#    Properties:
-#      StageName: Prod
-#      Cors:
-#        AllowOrigin: "'*'"
-#        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,Origin,Accept'"
-#        AllowMethods: "'GET,POST,OPTIONS,HEAD'"
-#    Name: !Sub "${AWS::StackName}-api"
 
   HttpApiLogGroup:
     Type: AWS::Logs::LogGroup

@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+    <springProperty scope="local" name="appName" source="spring.application.name"/>
+    <springProperty scope="local" name="activeProfile" source="spring.profiles.active"/>
+
+    <appender name="OTEL" class="io.opentelemetry.instrumentation.logback.appender.v1_0.OpenTelemetryAppender">
+        <captureExperimentalAttributes>true</captureExperimentalAttributes>
+        <captureMdcAttributes>*</captureMdcAttributes>
+    </appender>
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <fieldNames>
+                <timestamp>timestamp</timestamp>
+                <version>version</version>
+                <logger>logger_name</logger>
+                <level>level</level>
+                <thread>thread_name</thread>
+                <message>message</message>
+            </fieldNames>
+            <customFields>{"app":"${appName}","env":"${activeProfile}"}</customFields>
+
+            <!-- Spring/Micrometer standard keys (Optional) -->
+            <includeMdcKeyName>traceId</includeMdcKeyName>
+            <includeMdcKeyName>spanId</includeMdcKeyName>
+
+            <!-- OpenTelemetry standard keys -->
+            <includeMdcKeyName>trace_id</includeMdcKeyName>
+            <includeMdcKeyName>span_id</includeMdcKeyName>
+
+<!--            <includeMdc>false</includeMdc>-->
+
+        </encoder>
+    </appender>
+<!--    <appender name="FILE" class="ch.qos.logback.core.FileAppender">-->
+<!--        <file>logs/card-service.log</file>-->
+<!--        <encoder>-->
+<!--            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>-->
+<!--        </encoder>-->
+<!--    </appender>-->
+
+    <appender name="OTEL_CONSOLE" class="io.opentelemetry.instrumentation.logback.mdc.v1_0.OpenTelemetryAppender">
+        <appender-ref ref="CONSOLE"/>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="OTEL" />
+        <appender-ref ref="OTEL_CONSOLE" />
+<!--        <appender-ref ref="FILE" />-->
+    </root>
+    <logger name="banking" level="DEBUG" additivity="false">
+        <appender-ref ref="OTEL" />
+        <appender-ref ref="OTEL_CONSOLE" />
+<!--        <appender-ref ref="FILE" />-->
+    </logger>
+</configuration>

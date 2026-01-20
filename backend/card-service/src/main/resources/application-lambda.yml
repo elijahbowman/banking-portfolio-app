@@ -27,10 +27,36 @@ management:
   endpoints:
     web:
       exposure:
-        include: health
+        include: health, info, prometheus
   endpoint:
     health:
-      enabled: true
+      show-details: when_authorized
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+      environment: ${spring.profiles.active}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+  tracing:
+    sampling:
+      probability: 1.0
+  otlp:
+    logging:
+      export:
+        enabled: true
+      endpoint: ${ALLOY_BASE_URL:http://host.docker.internal:4318}/v1/logs
+    tracing:
+      endpoint: ${ALLOY_BASE_URL:http://host.docker.internal:4318}/v1/traces
+    metrics:
+      export:
+        enabled: true
+        url: ${ALLOY_BASE_URL:http://host.docker.internal:4318}/v1/metrics
+        step: 10s
 
 account:
   service:

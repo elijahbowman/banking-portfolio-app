@@ -11,6 +11,7 @@ services:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
       - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.enable-remote-write-receiver'
     networks:
       - banking-network
 
@@ -44,36 +45,41 @@ services:
     image: grafana/loki:latest
     container_name: banking-loki
     ports: [3100:3100]
+    volumes:
+      - ./monitoring/loki-config.yml:/etc/loki/local-config.yaml
     command: -config.file=/etc/loki/local-config.yaml
     networks:
       - banking-network
 
-  # promtail:
-  #   image: grafana/promtail:latest
-  #   container_name: banking-promtail
-  #   volumes:
-  #     - ./monitoring/promtail-config.yml:/etc/promtail/config.yml
-  #     - /var/run/docker.sock:/var/run/docker.sock
-  #     - ./logs:/logs
-  #   command: -config.file=/etc/promtail/config.yml
-  #   depends_on: [loki]
-  #   networks:
-  #     - banking-network
-
   alloy:
     image: grafana/alloy:latest
     container_name: banking-alloy
-    ports: [9080:9080]  # Optional (Alloy UI/metrics)
+    restart: always
+    ports:
+      - "4317:4317"   # OTLP gRPC (Lambda / ADOT)
+      - "4318:4318"   # OTLP HTTP (Spring Boot 3.x+)
+      - "9080:9080"   # Alloy UI (Optional)
     volumes:
-      - ./monitoring/alloy.config:/etc/alloy/config.alloy
+      - ./monitoring/config.alloy:/etc/alloy/config.alloy
       - /var/run/docker.sock:/var/run/docker.sock:ro
-    command: run --server.http.listen-addr=0.0.0.0:9080 /etc/alloy/config.alloy
+      - alloy_data:/var/lib/alloy/data
+    command: [
+      "run",
+      "--server.http.listen-addr=0.0.0.0:9080",
+      "--storage.path=/var/lib/alloy/data",
+      "/etc/alloy/config.alloy"
+    ]
+    depends_on:
+      - prometheus
+      - loki
+      - zipkin
     networks:
       - banking-network
 
   zipkin:
-    image: openzipkin/zipkin:latest
+    image: ghcr.io/openzipkin-contrib/zipkin-otel:latest
     container_name: banking-zipkin
+    # command: --logging.level.zipkin2=DEBUG -- zipkin.collector.otlp.enabled=true
     ports:
       - "9411:9411"
     networks:
@@ -100,6 +106,7 @@ services:
 
 volumes:
   grafana_data:
+  alloy_data:
 
 networks:
   banking-network:

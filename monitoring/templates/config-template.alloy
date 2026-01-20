@@ -1,0 +1,68 @@
+// --- SECTION 1: DOCKER CONTAINER LOGS (For EB / Local Containers) ---
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "docker_labels" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "service"
+  }
+}
+
+loki.source.docker "containers" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.docker_labels.output
+  forward_to = [loki.write.loki_backend.receiver]
+}
+
+// --- SECTION 2: OTLP RECEIVER (For Lambda / Modern Apps) ---
+otelcol.receiver.otlp "gateway" {
+  http { endpoint = "0.0.0.0:4318" }
+  grpc { endpoint = "0.0.0.0:4317" }
+
+  output {
+    metrics = [otelcol.exporter.prometheus.to_prom.input]
+    traces  = [otelcol.exporter.otlphttp.to_zipkin.input]
+    logs    = [otelcol.exporter.loki.to_loki.input]
+  }
+}
+
+// --- SECTION 3: EXPORTERS (The Sinks) ---
+
+// Metrics to Prometheus
+otelcol.exporter.prometheus "to_prom" {
+  forward_to = [prometheus.remote_write.prom_backend.receiver]
+}
+
+prometheus.remote_write "prom_backend" {
+  endpoint {
+    url = "{PROMETHEUS_BASE_URL}/api/v1/write"
+  }
+}
+
+// Traces to Zipkin
+otelcol.exporter.otlphttp "to_zipkin" {
+  client {
+    endpoint = "{ZIPKIN_BASE_URL}"
+  }
+}
+
+// Logs to Loki (Unified from both Docker and OTLP)
+otelcol.exporter.loki "to_loki" {
+  forward_to = [loki.write.loki_backend.receiver]
+}
+
+loki.write "loki_backend" {
+  endpoint {
+    url = "{LOKI_BASE_URL}/loki/api/v1/push"
+  }
+}
