@@ -3,12 +3,16 @@ package com.portfolio.banking.cardservice.lambda;
 import com.portfolio.banking.cardservice.domain.entity.RealCard;
 import com.portfolio.banking.cardservice.domain.entity.VirtualCardToken;
 import com.portfolio.banking.cardservice.domain.service.CardService;
+import com.portfolio.banking.cardservice.infrastructure.config.TelemetryFlusher;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.sdk.OpenTelemetrySdk;
+import io.opentelemetry.sdk.trace.SdkTracerProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.support.MessageBuilder;
 
@@ -16,6 +20,7 @@ import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
 @Configuration
@@ -24,6 +29,10 @@ import java.util.function.Function;
 public class IssueVCNFunction {
 
     private final CardService cardService;
+
+//    private final OpenTelemetry openTelemetry;
+
+    private final TelemetryFlusher flusher;
 
     @Bean
     public Function<Message<Map<String, Object>>, Message<VirtualCardToken>> issueVCN() {
@@ -89,7 +98,7 @@ public class IssueVCNFunction {
     }
 
     @Bean
-    public Function<Message<Map<String, Object>>, Message<?>> lambdaRouter() {
+    public Function<Message<Map<String, Object>>, Message<?>> lambdaRouter(ObjectProvider<OpenTelemetry> openTelemetry) {
         return message -> {
             try {
                 log.info("lambdaRouter received message={}", message);
@@ -142,6 +151,10 @@ public class IssueVCNFunction {
                         .setHeader("statusCode", HttpStatus.INTERNAL_SERVER_ERROR.value())
                         .setHeader("Content-Type", "application/json").build();
             }
+//            finally {
+////                flushTelemetry();
+//                flusher.flush();
+//            }
         };
     }
 
@@ -158,4 +171,13 @@ public class IssueVCNFunction {
                 .setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization")
                 .build();
     }
+
+//    private void flushTelemetry() {
+//        if (openTelemetry instanceof OpenTelemetrySdk sdk) {
+//            sdk.getSdkTracerProvider().forceFlush().join(10, TimeUnit.SECONDS);
+//            sdk.getSdkMeterProvider().forceFlush().join(10, TimeUnit.SECONDS);
+//            sdk.getSdkLoggerProvider().forceFlush().join(10, TimeUnit.SECONDS);
+//            log.info("Manual OTel flush complete.");
+//        }
+//    }
 }

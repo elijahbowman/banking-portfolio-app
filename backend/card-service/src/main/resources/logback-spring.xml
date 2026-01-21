@@ -5,7 +5,7 @@
     <springProperty scope="local" name="appName" source="spring.application.name"/>
     <springProperty scope="local" name="activeProfile" source="spring.profiles.active"/>
 
-    <appender name="OTEL" class="io.opentelemetry.instrumentation.logback.appender.v1_0.OpenTelemetryAppender">
+    <appender name="OTEL_EXPORT" class="io.opentelemetry.instrumentation.logback.appender.v1_0.OpenTelemetryAppender">
         <captureExperimentalAttributes>true</captureExperimentalAttributes>
         <captureMdcAttributes>*</captureMdcAttributes>
     </appender>
@@ -23,8 +23,8 @@
             <customFields>{"app":"${appName}","env":"${activeProfile}"}</customFields>
 
             <!-- Spring/Micrometer standard keys (Optional) -->
-            <includeMdcKeyName>traceId</includeMdcKeyName>
-            <includeMdcKeyName>spanId</includeMdcKeyName>
+<!--            <includeMdcKeyName>traceId</includeMdcKeyName>-->
+<!--            <includeMdcKeyName>spanId</includeMdcKeyName>-->
 
             <!-- OpenTelemetry standard keys -->
             <includeMdcKeyName>trace_id</includeMdcKeyName>
@@ -41,18 +41,18 @@
 <!--        </encoder>-->
 <!--    </appender>-->
 
-    <appender name="OTEL_CONSOLE" class="io.opentelemetry.instrumentation.logback.mdc.v1_0.OpenTelemetryAppender">
-        <appender-ref ref="CONSOLE"/>
-    </appender>
+<!--    <appender name="OTEL_CONSOLE" class="io.opentelemetry.instrumentation.logback.mdc.v1_0.OpenTelemetryAppender">-->
+<!--        <appender-ref ref="CONSOLE"/>-->
+<!--    </appender>-->
 
     <root level="INFO">
-        <appender-ref ref="OTEL" />
-        <appender-ref ref="OTEL_CONSOLE" />
+        <appender-ref ref="OTEL_EXPORT" />
+        <appender-ref ref="CONSOLE" />
 <!--        <appender-ref ref="FILE" />-->
     </root>
-    <logger name="banking" level="DEBUG" additivity="false">
-        <appender-ref ref="OTEL" />
-        <appender-ref ref="OTEL_CONSOLE" />
+    <logger name="com.portfolio.banking" level="DEBUG" additivity="false">
+        <appender-ref ref="OTEL_EXPORT" />
+        <appender-ref ref="CONSOLE" />
 <!--        <appender-ref ref="FILE" />-->
     </logger>
 </configuration>

@@ -3,6 +3,8 @@ spring:
     name: CardService
   kafka:
     bootstrap-servers: localhost:9092
+    template:
+      observation-enabled: true
     consumer:
       group-id: card-service-test-group
       auto-offset-reset: earliest

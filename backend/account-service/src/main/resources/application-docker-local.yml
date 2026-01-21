@@ -12,7 +12,6 @@ spring:
         dialect:
   kafka:
     bootstrap-servers:
-
   h2:
     console:
       enabled: false

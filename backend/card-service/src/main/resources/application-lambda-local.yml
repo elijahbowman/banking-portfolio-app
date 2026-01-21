@@ -5,6 +5,10 @@ spring:
     exclude: org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:host.docker.internal:9092}
+    template:
+      observation-enabled: true
+    listener:
+      observation-enabled: true
   cloud:
     function:
       definition: ${SPRING_CLOUD_FUNCTION_DEFINITION}
@@ -46,21 +50,52 @@ management:
     distribution:
       percentiles-histogram:
         http.server.requests: true
+        spring.kafka.listener: true
   tracing:
     sampling:
       probability: 1.0
-  otlp:
-    logging:
-      export:
-        enabled: true
-      endpoint: ${ALLOY_BASE_URL:http://host.docker.internal:4318}/v1/logs
-    tracing:
-      endpoint: ${ALLOY_BASE_URL:http://host.docker.internal:4318}/v1/traces
-    metrics:
-      export:
-        enabled: true
-        url: ${ALLOY_BASE_URL:http://host.docker.internal:4318}/v1/metrics
-        step: 10s
+#  otlp:
+#    logging:
+#      export:
+#        enabled: true
+#      endpoint: ${ALLOY_BASE_URL:http://host.docker.internal:4318}
+#    tracing:
+#      export:
+#        enabled: true
+#      endpoint: ${ALLOY_BASE_URL:http://host.docker.internal:4318}
+#    metrics:
+#      export:
+#        enabled: true
+#        url: ${ALLOY_BASE_URL:http://host.docker.internal:4318}
+#        step: 10s
+otel:
+  service:
+    name: card-service
+  exporter:
+    otlp:
+      endpoint: ${ALLOY_BASE_URL:http://host.docker.internal:4318}
+      protocol: http/protobuf
+      timeout: 2000
+
+  # Configuration for the Batch Span Processor (Traces)
+  bsp:
+    schedule:
+      delay: 1 # (in ms)
+
+  # Configuration for the Batch Log Record Processor (Logs)
+  blrp:
+    schedule:
+      delay: 1 # (in ms)
+
+  metrics:
+    exporter: otlp
+  logs:
+    exporter: otlp
+  traces:
+    exporter: otlp
+
+#  propagators: "tracecontext,baggage,b3"
+  propagators: "tracecontext,baggage"
 
 account:
   service:
@@ -85,3 +120,7 @@ account:
 
 #  file:
 #    name: /app/logs/card-service.log
+#logging:
+#  level:
+#    org.springframework.beans.factory: DEBUG
+

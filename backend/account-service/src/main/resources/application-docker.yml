@@ -18,7 +18,6 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
   kafka:
     bootstrap-servers: ${KAFKA_BROKER}
-
   h2:
     console:
       enabled: false

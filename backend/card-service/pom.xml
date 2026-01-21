@@ -138,13 +138,14 @@
 			<artifactId>opentelemetry-exporter-otlp</artifactId>
 		</dependency>
 
-		<!-- Bridge to send Logback logs into the OTel pipeline -->
+		<!-- Bridges Logback logs into the OTel pipeline -->
 		<dependency>
 			<groupId>io.opentelemetry.instrumentation</groupId>
 			<artifactId>opentelemetry-logback-appender-1.0</artifactId>
 			<version>2.23.0-alpha</version>
 		</dependency>
 
+		<!-- Injects Trace/Span IDs into log patterns. -->
 		<dependency>
 			<groupId>io.opentelemetry.instrumentation</groupId>
 			<artifactId>opentelemetry-logback-mdc-1.0</artifactId>
@@ -152,6 +153,7 @@
 			<scope>runtime</scope>
 		</dependency>
 
+		<!-- Ensures that when Lambda starts, the incoming AWS trace context (OTel's trace context) is shared with Spring's internal Observation API (Spring's logging system (MDC)). -->
 		<dependency>
 			<groupId>io.micrometer</groupId>
 			<artifactId>micrometer-tracing-bridge-otel</artifactId>

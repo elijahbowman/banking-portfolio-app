@@ -2,7 +2,7 @@ import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { SharedArray } from 'k6/data';
 const accounts = new SharedArray('accounts', function () {
-    return ["smoke4", "smoke5", "smoke6", "smoke7", "smoke8"];
+    return ["load", "load2", "load3", "load4", "load5"];
 });
 
 export const options = {
@@ -26,7 +26,7 @@ export const options = {
     },
 };
 
-const BASE_URL = 'https://zbpxg3v1y9.execute-api.us-east-1.amazonaws.com/Prod';
+const BASE_URL = 'https://mccak9w5q6.execute-api.us-east-1.amazonaws.com/Prod';
 
 export default function () {
     const accountId = accounts[Math.floor(Math.random() * accounts.length)];
