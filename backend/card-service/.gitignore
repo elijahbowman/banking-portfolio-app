@@ -35,3 +35,5 @@ build/
 .aws-sam
 response.json
 dependency-reduced-pom.xml
+
+javaagent

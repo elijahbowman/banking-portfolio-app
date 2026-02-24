@@ -5,10 +5,10 @@
     <springProperty scope="local" name="appName" source="spring.application.name"/>
     <springProperty scope="local" name="activeProfile" source="spring.profiles.active"/>
 
-    <appender name="OTEL_EXPORT" class="io.opentelemetry.instrumentation.logback.appender.v1_0.OpenTelemetryAppender">
-        <captureExperimentalAttributes>true</captureExperimentalAttributes>
-        <captureMdcAttributes>*</captureMdcAttributes>
-    </appender>
+<!--    <appender name="OTEL_EXPORT" class="io.opentelemetry.instrumentation.logback.appender.v1_0.OpenTelemetryAppender">-->
+<!--        <captureExperimentalAttributes>true</captureExperimentalAttributes>-->
+<!--        <captureMdcAttributes>*</captureMdcAttributes>-->
+<!--    </appender>-->
 
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder class="net.logstash.logback.encoder.LogstashEncoder">
@@ -23,35 +23,35 @@
             <customFields>{"app":"${appName}","env":"${activeProfile}"}</customFields>
 
             <!-- Spring/Micrometer standard keys (Optional) -->
-<!--            <includeMdcKeyName>traceId</includeMdcKeyName>-->
-<!--            <includeMdcKeyName>spanId</includeMdcKeyName>-->
+            <includeMdcKeyName>traceId</includeMdcKeyName>
+            <includeMdcKeyName>spanId</includeMdcKeyName>
 
             <!-- OpenTelemetry standard keys -->
             <includeMdcKeyName>trace_id</includeMdcKeyName>
             <includeMdcKeyName>span_id</includeMdcKeyName>
 
-<!--            <includeMdc>false</includeMdc>-->
+            <includeMdc>false</includeMdc>
 
         </encoder>
     </appender>
-<!--    <appender name="FILE" class="ch.qos.logback.core.FileAppender">-->
-<!--        <file>logs/card-service.log</file>-->
-<!--        <encoder>-->
-<!--            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>-->
-<!--        </encoder>-->
-<!--    </appender>-->
+    <appender name="FILE" class="ch.qos.logback.core.FileAppender">
+        <file>logs/card-service.log</file>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg traceId=%X{traceId} spanId=%X{spanId}%n</pattern>
+        </encoder>
+    </appender>
 
 <!--    <appender name="OTEL_CONSOLE" class="io.opentelemetry.instrumentation.logback.mdc.v1_0.OpenTelemetryAppender">-->
 <!--        <appender-ref ref="CONSOLE"/>-->
 <!--    </appender>-->
 
     <root level="INFO">
-        <appender-ref ref="OTEL_EXPORT" />
+<!--        <appender-ref ref="OTEL_EXPORT" />-->
         <appender-ref ref="CONSOLE" />
 <!--        <appender-ref ref="FILE" />-->
     </root>
     <logger name="com.portfolio.banking" level="DEBUG" additivity="false">
-        <appender-ref ref="OTEL_EXPORT" />
+<!--        <appender-ref ref="OTEL_EXPORT" />-->
         <appender-ref ref="CONSOLE" />
 <!--        <appender-ref ref="FILE" />-->
     </logger>

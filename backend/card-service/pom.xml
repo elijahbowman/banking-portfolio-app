@@ -126,43 +126,37 @@
 			<artifactId>micrometer-registry-prometheus</artifactId>
 		</dependency>
 
-		<dependency>
-			<groupId>io.opentelemetry.instrumentation</groupId>
-			<artifactId>opentelemetry-spring-boot-starter</artifactId>
-<!--			<scope>provided</scope>-->
-		</dependency>
+<!--		<dependency>-->
+<!--			<groupId>io.opentelemetry.instrumentation</groupId>-->
+<!--			<artifactId>opentelemetry-spring-boot-starter</artifactId>-->
+<!--&lt;!&ndash;			<scope>provided</scope>&ndash;&gt;-->
+<!--		</dependency>-->
 
 		<!-- OTLP Exporter: Required to send Traces and Logs to Alloy (Port 4318) -->
-		<dependency>
-			<groupId>io.opentelemetry</groupId>
-			<artifactId>opentelemetry-exporter-otlp</artifactId>
-		</dependency>
+<!--		<dependency>-->
+<!--			<groupId>io.opentelemetry</groupId>-->
+<!--			<artifactId>opentelemetry-exporter-otlp</artifactId>-->
+<!--		</dependency>-->
 
 		<!-- Bridges Logback logs into the OTel pipeline -->
-		<dependency>
-			<groupId>io.opentelemetry.instrumentation</groupId>
-			<artifactId>opentelemetry-logback-appender-1.0</artifactId>
-			<version>2.23.0-alpha</version>
-		</dependency>
+<!--		<dependency>-->
+<!--			<groupId>io.opentelemetry.instrumentation</groupId>-->
+<!--			<artifactId>opentelemetry-logback-appender-1.0</artifactId>-->
+<!--			<version>2.23.0-alpha</version>-->
+<!--		</dependency>-->
 
 		<!-- Injects Trace/Span IDs into log patterns. -->
-		<dependency>
-			<groupId>io.opentelemetry.instrumentation</groupId>
-			<artifactId>opentelemetry-logback-mdc-1.0</artifactId>
-			<version>2.23.0-alpha</version>
-			<scope>runtime</scope>
-		</dependency>
+<!--		<dependency>-->
+<!--			<groupId>io.opentelemetry.instrumentation</groupId>-->
+<!--			<artifactId>opentelemetry-logback-mdc-1.0</artifactId>-->
+<!--			<version>2.23.0-alpha</version>-->
+<!--			<scope>runtime</scope>-->
+<!--		</dependency>-->
 
 		<!-- Ensures that when Lambda starts, the incoming AWS trace context (OTel's trace context) is shared with Spring's internal Observation API (Spring's logging system (MDC)). -->
-		<dependency>
-			<groupId>io.micrometer</groupId>
-			<artifactId>micrometer-tracing-bridge-otel</artifactId>
-		</dependency>
-
 <!--		<dependency>-->
-<!--			<groupId>joda-time</groupId>-->
-<!--			<artifactId>joda-time</artifactId>-->
-<!--			<version>2.12.7</version>-->
+<!--			<groupId>io.micrometer</groupId>-->
+<!--			<artifactId>micrometer-tracing-bridge-otel</artifactId>-->
 <!--		</dependency>-->
 
 		<dependency>
@@ -198,10 +192,46 @@
 			<artifactId>logstash-logback-encoder</artifactId>
 			<version>8.0</version>
 		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-logging</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>io.micrometer</groupId>
+			<artifactId>micrometer-observation</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>ch.qos.logback</groupId>
+			<artifactId>logback-classic</artifactId>
+		</dependency>
+
 <!--		<dependency>-->
-<!--			<groupId>org.springframework.boot</groupId>-->
-<!--			<artifactId>spring-boot-starter-logging</artifactId>-->
+<!--			<groupId>io.micrometer</groupId>-->
+<!--			<artifactId>micrometer-registry-otlp</artifactId>-->
 <!--		</dependency>-->
+<!--		<dependency>-->
+<!--			<groupId>software.amazon.awssdk</groupId>-->
+<!--			<artifactId>metrics-spi</artifactId>-->
+<!--		</dependency>-->
+<!--		<dependency>-->
+<!--			<groupId>io.awspring.cloud</groupId>-->
+<!--			<artifactId>spring-cloud-aws-starter-observability</artifactId>-->
+<!--		</dependency>-->
+
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-aop</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>io.github.openfeign</groupId>
+			<artifactId>feign-micrometer</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>io.github.openfeign</groupId>
+			<artifactId>feign-okhttp</artifactId>
+		</dependency>
 
 	</dependencies>
 

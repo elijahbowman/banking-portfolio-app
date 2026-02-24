@@ -6,6 +6,13 @@ discovery.docker "containers" {
 discovery.relabel "docker_labels" {
   targets = discovery.docker.containers.targets
 
+  // --- Prevents duplicate banking, account, and card service logs ---
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(banking-service|account-service|card-service).*" 
+    action        = "drop"
+  }
+
   rule {
     source_labels = ["__meta_docker_container_name"]
     regex         = "/(.*)"
@@ -18,13 +25,15 @@ discovery.relabel "docker_labels" {
   }
 }
 
+
+// --- SECTION 2: Read logs using the relabeled targets
 loki.source.docker "containers" {
   host       = "unix:///var/run/docker.sock"
   targets    = discovery.relabel.docker_labels.output
   forward_to = [loki.write.loki_backend.receiver]
 }
 
-// --- SECTION 2: OTLP RECEIVER (For Lambda / Modern Apps) ---
+// --- SECTION 3: OTLP RECEIVER (For Lambda / Modern Apps) ---
 otelcol.receiver.otlp "gateway" {
   http { endpoint = "0.0.0.0:4318" }
   grpc { endpoint = "0.0.0.0:4317" }
@@ -36,10 +45,12 @@ otelcol.receiver.otlp "gateway" {
   }
 }
 
-// --- SECTION 3: EXPORTERS (The Sinks) ---
+// --- SECTION 4: EXPORTERS (The Sinks) ---
 
 // Metrics to Prometheus
 otelcol.exporter.prometheus "to_prom" {
+  add_metric_suffixes = true
+  resource_to_telemetry_conversion = true
   forward_to = [prometheus.remote_write.prom_backend.receiver]
 }
 

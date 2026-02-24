@@ -14,6 +14,7 @@ services:
       - '--web.enable-remote-write-receiver'
     networks:
       - banking-network
+    restart: unless-stopped
 
   # alertmanager:
   #   image: prom/alertmanager:latest
@@ -41,6 +42,7 @@ services:
     depends_on: [prometheus, loki]
     networks:
       - banking-network
+    restart: unless-stopped
 
   loki:
     image: grafana/loki:latest
@@ -49,11 +51,11 @@ services:
     command: -config.file=/etc/loki/local-config.yaml
     networks:
       - banking-network
+    restart: unless-stopped
 
   alloy:
     image: grafana/alloy:latest
     container_name: banking-alloy
-    restart: always
     ports:
       - "4317:4317"   # OTLP gRPC (Lambda / ADOT)
       - "4318:4318"   # OTLP HTTP (Spring Boot 3.x+)
@@ -74,6 +76,7 @@ services:
       - zipkin
     networks:
       - banking-network
+    restart: unless-stopped
 
   zipkin:
     image: ghcr.io/openzipkin-contrib/zipkin-otel:latest
@@ -87,6 +90,7 @@ services:
       - "9411:9411"
     networks:
       - banking-network
+    restart: unless-stopped
 
   kafka-exporter:
     image: danielqsj/kafka-exporter:latest
@@ -99,6 +103,7 @@ services:
       - --log.level=debug
     networks:
       - banking-network
+    restart: unless-stopped
 
   node-exporter:
     image: prom/node-exporter:latest
@@ -106,6 +111,7 @@ services:
     ports: [9100:9100]
     networks:
       - banking-network
+    restart: unless-stopped
 
 volumes:
   grafana_data:

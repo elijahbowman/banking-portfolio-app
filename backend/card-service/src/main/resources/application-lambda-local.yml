@@ -12,6 +12,14 @@ spring:
   cloud:
     function:
       definition: ${SPRING_CLOUD_FUNCTION_DEFINITION}
+    aws:
+      dynamodb:
+        enabled: true
+    openfeign:
+      micrometer:
+        enabled: true
+      okhttp:
+        enabled: true
 
 spring.cloud.aws:
   dynamodb:
@@ -35,14 +43,15 @@ management:
   endpoints:
     web:
       exposure:
-        include: health, info, prometheus
+        include: '*'
   endpoint:
     health:
       show-details: when_authorized
   prometheus:
     metrics:
       export:
-        enabled: true
+#        enabled: true
+        enabled: false
   metrics:
     tags:
       application: ${spring.application.name}
@@ -51,9 +60,21 @@ management:
       percentiles-histogram:
         http.server.requests: true
         spring.kafka.listener: true
+        spring.cloud.function: true
+        http.client.requests: true
+      slo:
+        http.client.requests: 50ms,100ms,200ms,500ms,1s,5s
+    enable:
+#      spring.cloud.function: true
+      all: true
+#      aws.sdk: true
   tracing:
+    enabled: false
     sampling:
       probability: 1.0
+  observations:
+    annotations:
+      enabled: true
 #  otlp:
 #    logging:
 #      export:
@@ -68,34 +89,34 @@ management:
 #        enabled: true
 #        url: ${ALLOY_BASE_URL:http://host.docker.internal:4318}
 #        step: 10s
-otel:
-  service:
-    name: card-service
-  exporter:
-    otlp:
-      endpoint: ${ALLOY_BASE_URL:http://host.docker.internal:4318}
-      protocol: http/protobuf
-      timeout: 2000
-
-  # Configuration for the Batch Span Processor (Traces)
-  bsp:
-    schedule:
-      delay: 1 # (in ms)
-
-  # Configuration for the Batch Log Record Processor (Logs)
-  blrp:
-    schedule:
-      delay: 1 # (in ms)
-
-  metrics:
-    exporter: otlp
-  logs:
-    exporter: otlp
-  traces:
-    exporter: otlp
-
-#  propagators: "tracecontext,baggage,b3"
-  propagators: "tracecontext,baggage"
+#otel:
+#  service:
+#    name: card-service
+#  exporter:
+#    otlp:
+#      endpoint: ${ALLOY_BASE_URL:http://host.docker.internal:4318}
+#      protocol: http/protobuf
+#      timeout: 2000
+#
+#  # Configuration for the Batch Span Processor (Traces)
+#  bsp:
+#    schedule:
+#      delay: 1 # (in ms)
+#
+#  # Configuration for the Batch Log Record Processor (Logs)
+#  blrp:
+#    schedule:
+#      delay: 1 # (in ms)
+#
+#  metrics:
+#    exporter: otlp
+#  logs:
+#    exporter: otlp
+#  traces:
+#    exporter: otlp
+#
+##  propagators: "tracecontext,baggage,b3"
+#  propagators: "tracecontext,baggage"
 
 account:
   service:
@@ -117,6 +138,7 @@ account:
 #            type:
 #              descriptor:
 #                sql: INFO
+#    feign: DEBUG
 
 #  file:
 #    name: /app/logs/card-service.log

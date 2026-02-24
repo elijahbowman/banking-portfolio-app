@@ -1,5 +1,5 @@
 {
-  "CardServiceAPIFunction": {
+  "CardServiceApiFunction": {
     "SPRING_PROFILES_ACTIVE": "lambda-local",
     "spring.cloud.function.instantiate-on-startup": "true"
   },

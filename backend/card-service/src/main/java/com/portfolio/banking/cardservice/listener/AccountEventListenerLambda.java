@@ -3,15 +3,15 @@ package com.portfolio.banking.cardservice.listener;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.portfolio.banking.cardservice.domain.entity.RealCard;
-import com.portfolio.banking.cardservice.infrastructure.config.TelemetryFlusher;
+//import com.portfolio.banking.cardservice.infrastructure.config.TelemetryFlusher;
 import com.portfolio.banking.cardservice.repository.CardRepository;
 import io.micrometer.observation.Observation;
 import io.micrometer.observation.ObservationRegistry;
-import io.opentelemetry.api.OpenTelemetry;
-import io.opentelemetry.sdk.OpenTelemetrySdk;
-import io.opentelemetry.sdk.logs.SdkLoggerProvider;
-import io.opentelemetry.sdk.metrics.SdkMeterProvider;
-import io.opentelemetry.sdk.trace.SdkTracerProvider;
+//import io.opentelemetry.api.OpenTelemetry;
+//import io.opentelemetry.sdk.OpenTelemetrySdk;
+//import io.opentelemetry.sdk.logs.SdkLoggerProvider;
+//import io.opentelemetry.sdk.metrics.SdkMeterProvider;
+//import io.opentelemetry.sdk.trace.SdkTracerProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
@@ -37,7 +37,7 @@ public class AccountEventListenerLambda {
 
 //    private final OpenTelemetry openTelemetry;
 
-    private final TelemetryFlusher flusher;
+//    private final TelemetryFlusher flusher;
 
     @Bean
     public Consumer<Message<Map<String, Object>>> accountCreated() {

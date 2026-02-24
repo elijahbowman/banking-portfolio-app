@@ -84,6 +84,7 @@ services:
       - "9411:9411"
     networks:
       - banking-network
+    restart: unless-stopped
 
   kafka-exporter:
     image: danielqsj/kafka-exporter:latest

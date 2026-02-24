@@ -6,6 +6,13 @@ discovery.docker "containers" {
 discovery.relabel "docker_labels" {
   targets = discovery.docker.containers.targets
 
+  // --- Prevents duplicate banking, account, and card service logs ---
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(banking-service|account-service|card-service).*" 
+    action        = "drop"
+  }
+
   rule {
     source_labels = ["__meta_docker_container_name"]
     regex         = "/(.*)"
@@ -40,6 +47,8 @@ otelcol.receiver.otlp "gateway" {
 
 // Metrics to Prometheus
 otelcol.exporter.prometheus "to_prom" {
+  add_metric_suffixes = true
+  resource_to_telemetry_conversion = true
   forward_to = [prometheus.remote_write.prom_backend.receiver]
 }
 

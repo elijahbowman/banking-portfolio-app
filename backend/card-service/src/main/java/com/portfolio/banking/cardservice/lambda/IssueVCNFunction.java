@@ -3,13 +3,14 @@ package com.portfolio.banking.cardservice.lambda;
 import com.portfolio.banking.cardservice.domain.entity.RealCard;
 import com.portfolio.banking.cardservice.domain.entity.VirtualCardToken;
 import com.portfolio.banking.cardservice.domain.service.CardService;
-import com.portfolio.banking.cardservice.infrastructure.config.TelemetryFlusher;
-import io.opentelemetry.api.OpenTelemetry;
-import io.opentelemetry.sdk.OpenTelemetrySdk;
-import io.opentelemetry.sdk.trace.SdkTracerProvider;
+//import com.portfolio.banking.cardservice.infrastructure.config.TelemetryFlusher;
+//import io.opentelemetry.api.OpenTelemetry;
+//import io.opentelemetry.sdk.OpenTelemetrySdk;
+//import io.opentelemetry.sdk.trace.SdkTracerProvider;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
@@ -20,7 +21,6 @@ import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
 @Configuration
@@ -32,7 +32,19 @@ public class IssueVCNFunction {
 
 //    private final OpenTelemetry openTelemetry;
 
-    private final TelemetryFlusher flusher;
+//    private final TelemetryFlusher flusher;
+
+    @Autowired
+    private MeterRegistry registry;
+
+//    public void testMetric() {
+//        registry.counter("test.lambda.metric").increment();
+//    }
+
+    public void recordVcnIssuance(String status) {
+        // Micrometer will export this to Prometheus as: vcn_issuance_total{status="success"}
+        registry.counter("vcn.issuance", "status", status).increment();
+    }
 
     @Bean
     public Function<Message<Map<String, Object>>, Message<VirtualCardToken>> issueVCN() {
@@ -51,6 +63,8 @@ public class IssueVCNFunction {
 
             BigDecimal limit = new BigDecimal(limitStr);
             VirtualCardToken token = cardService.issueVCN(realCardId, limit);
+
+            recordVcnIssuance("success");
 
             return MessageBuilder
                     .withPayload(token)
@@ -98,9 +112,10 @@ public class IssueVCNFunction {
     }
 
     @Bean
-    public Function<Message<Map<String, Object>>, Message<?>> lambdaRouter(ObjectProvider<OpenTelemetry> openTelemetry) {
+    public Function<Message<Map<String, Object>>, Message<?>> lambdaRouter() {
         return message -> {
             try {
+//                testMetric();
                 log.info("lambdaRouter received message={}", message);
                 Map<String, Object> payload = message.getPayload();
                 @SuppressWarnings("unchecked")

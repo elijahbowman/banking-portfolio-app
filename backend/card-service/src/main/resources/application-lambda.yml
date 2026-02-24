@@ -26,6 +26,12 @@ spring:
         secret-key: ${AWS_SECRET_ACCESS_KEY}
       dynamodb:
         endpoint: ${AWS_DYNAMODB_ENDPOINT:}
+        enabled: true
+    openfeign:
+      micrometer:
+        enabled: true
+      okhttp:
+        enabled: true
 
 management:
   endpoints:
@@ -38,7 +44,7 @@ management:
   prometheus:
     metrics:
       export:
-        enabled: true
+        enabled: false
   metrics:
     tags:
       application: ${spring.application.name}
@@ -47,9 +53,19 @@ management:
       percentiles-histogram:
         http.server.requests: true
         spring.kafka.listener: true
+        spring.cloud.function: true
+        http.client.requests: true
+      slo:
+        http.client.requests: 50ms,100ms,200ms,500ms,1s,5s
+    enable:
+      all: true
   tracing:
+    enabled: false
     sampling:
       probability: 1.0
+  observations:
+    annotations:
+      enabled: true
 #  otlp:
 #    logging:
 #      export:
@@ -65,34 +81,34 @@ management:
 #        url: ${ALLOY_BASE_URL:http://host.docker.internal:4318}
 #        step: 10s
 
-otel:
-  service:
-    name: card-service
-  exporter:
-    otlp:
-      endpoint: ${ALLOY_BASE_URL}
-      protocol: http/protobuf
-      timeout: 60000
-
-  # Configuration for the Batch Span Processor (Traces)
-  bsp:
-    schedule:
-      delay: 10 # (in ms)
-
-  # Configuration for the Batch Log Record Processor (Logs)
-  blrp:
-    schedule:
-      delay: 10 # (in ms)
-
-  metrics:
-    exporter: otlp
-  logs:
-    exporter: otlp
-  traces:
-    exporter: otlp
-
-#  propagators: "tracecontext,baggage,b3"
-  propagators: "tracecontext,baggage"
+#otel:
+#  service:
+#    name: card-service
+#  exporter:
+#    otlp:
+#      endpoint: ${ALLOY_BASE_URL}
+#      protocol: http/protobuf
+#      timeout: 60000
+#
+#  # Configuration for the Batch Span Processor (Traces)
+#  bsp:
+#    schedule:
+#      delay: 10 # (in ms)
+#
+#  # Configuration for the Batch Log Record Processor (Logs)
+#  blrp:
+#    schedule:
+#      delay: 10 # (in ms)
+#
+#  metrics:
+#    exporter: otlp
+#  logs:
+#    exporter: otlp
+#  traces:
+#    exporter: otlp
+#
+##  propagators: "tracecontext,baggage,b3"
+#  propagators: "tracecontext,baggage"
 
 account:
   service:

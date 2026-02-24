@@ -141,6 +141,7 @@ Resources:
                     - '--web.enable-remote-write-receiver'
                   networks:
                     - banking-network
+                  restart: unless-stopped
 
                 grafana:
                   image: grafana/grafana:latest
@@ -156,11 +157,11 @@ Resources:
                   depends_on: [prometheus, loki]
                   networks:
                     - banking-network
+                  restart: unless-stopped
 
                 alloy:
                   image: grafana/alloy:latest
                   container_name: banking-alloy
-                  restart: always
                   ports:
                     - "4317:4317"   # OTLP gRPC (Lambda / ADOT)
                     - "4318:4318"   # OTLP HTTP (Spring Boot 3.x+)
@@ -181,6 +182,7 @@ Resources:
                     - zipkin
                   networks:
                     - banking-network
+                  restart: unless-stopped
 
                 loki:
                   image: grafana/loki:latest
@@ -191,6 +193,7 @@ Resources:
                   command: -config.file=/etc/loki/local-config.yaml
                   networks:
                     - banking-network
+                  restart: unless-stopped
 
                 zipkin:
                   image: ghcr.io/openzipkin-contrib/zipkin-otel:latest
@@ -199,6 +202,7 @@ Resources:
                     - "9411:9411"
                   networks:
                     - banking-network
+                  restart: unless-stopped
 
                 kafka-exporter:
                   image: danielqsj/kafka-exporter:latest
@@ -211,6 +215,7 @@ Resources:
                     - --log.level=debug
                   networks:
                     - banking-network
+                  restart: unless-stopped
 
                 node-exporter:
                   image: prom/node-exporter:latest
@@ -218,6 +223,7 @@ Resources:
                   ports: [9100:9100]
                   networks:
                     - banking-network
+                  restart: unless-stopped
 
               volumes:
                 grafana_data:
@@ -270,13 +276,28 @@ Resources:
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
-        - Effect: Allow
-          Principal:
-            Service: ec2.amazonaws.com
-          Action: sts:AssumeRole
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole      
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
-
+        - arn:aws:iam::aws:policy/CloudWatchReadOnlyAccess
+        - arn:aws:iam::aws:policy/CloudWatchLogsReadOnlyAccess
+      Policies:
+        - PolicyName: GrafanaCloudwatchDatasourcePolicyDocument
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cloudwatch:GetMetricData
+                  - cloudwatch:GetMetricStatistics
+                  - cloudwatch:ListMetrics
+                Resource: '*'
+              - Effect: Allow
+                Action: logs:DescribeLogGroups
+                Resource: '*'
   MonitoringInstanceProfile:
     Type: AWS::IAM::InstanceProfile
     Properties:
