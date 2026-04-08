@@ -35,10 +35,6 @@ spring:
           json:
             trusted:
               packages: "*"
-#  boot:
-#    admin:
-#      client:
-#        url:
 
 logging:
   level:
@@ -51,13 +47,3 @@ logging:
 server:
   port: 0
 
-#management:
-#  endpoints:
-#    web:
-#      exposure:
-#        include: env
-#
-#
-#  endpoint:
-#    env:
-#      show-values: always

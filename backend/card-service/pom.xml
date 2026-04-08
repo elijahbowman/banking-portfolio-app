@@ -87,11 +87,6 @@
 			<artifactId>h2</artifactId>
 			<scope>runtime</scope>
 		</dependency>
-<!--		<dependency>-->
-<!--			<groupId>software.amazon.awssdk</groupId>-->
-<!--			<artifactId>dynamodb</artifactId>-->
-<!--			<version>2.25.50</version>-->
-<!--		</dependency>-->
 		<dependency>
 			<groupId>software.amazon.awssdk</groupId>
 			<artifactId>dynamodb-enhanced</artifactId>
@@ -126,39 +121,6 @@
 			<artifactId>micrometer-registry-prometheus</artifactId>
 		</dependency>
 
-<!--		<dependency>-->
-<!--			<groupId>io.opentelemetry.instrumentation</groupId>-->
-<!--			<artifactId>opentelemetry-spring-boot-starter</artifactId>-->
-<!--&lt;!&ndash;			<scope>provided</scope>&ndash;&gt;-->
-<!--		</dependency>-->
-
-		<!-- OTLP Exporter: Required to send Traces and Logs to Alloy (Port 4318) -->
-<!--		<dependency>-->
-<!--			<groupId>io.opentelemetry</groupId>-->
-<!--			<artifactId>opentelemetry-exporter-otlp</artifactId>-->
-<!--		</dependency>-->
-
-		<!-- Bridges Logback logs into the OTel pipeline -->
-<!--		<dependency>-->
-<!--			<groupId>io.opentelemetry.instrumentation</groupId>-->
-<!--			<artifactId>opentelemetry-logback-appender-1.0</artifactId>-->
-<!--			<version>2.23.0-alpha</version>-->
-<!--		</dependency>-->
-
-		<!-- Injects Trace/Span IDs into log patterns. -->
-<!--		<dependency>-->
-<!--			<groupId>io.opentelemetry.instrumentation</groupId>-->
-<!--			<artifactId>opentelemetry-logback-mdc-1.0</artifactId>-->
-<!--			<version>2.23.0-alpha</version>-->
-<!--			<scope>runtime</scope>-->
-<!--		</dependency>-->
-
-		<!-- Ensures that when Lambda starts, the incoming AWS trace context (OTel's trace context) is shared with Spring's internal Observation API (Spring's logging system (MDC)). -->
-<!--		<dependency>-->
-<!--			<groupId>io.micrometer</groupId>-->
-<!--			<artifactId>micrometer-tracing-bridge-otel</artifactId>-->
-<!--		</dependency>-->
-
 		<dependency>
 			<groupId>org.springframework.cloud</groupId>
 			<artifactId>spring-cloud-function-context</artifactId>
@@ -179,14 +141,8 @@
 			<groupId>com.amazonaws</groupId>
 			<artifactId>aws-lambda-java-events</artifactId>
 			<version>3.11.0</version>
-<!--			<scope>test</scope>-->
-<!--			<scope>provided</scope>-->
 		</dependency>
 
-<!--		<dependency>-->
-<!--			<groupId>ch.qos.logback</groupId>-->
-<!--			<artifactId>logback-classic</artifactId>-->
-<!--		</dependency>-->
 		<dependency>
 			<groupId>net.logstash.logback</groupId>
 			<artifactId>logstash-logback-encoder</artifactId>
@@ -205,19 +161,6 @@
 			<groupId>ch.qos.logback</groupId>
 			<artifactId>logback-classic</artifactId>
 		</dependency>
-
-<!--		<dependency>-->
-<!--			<groupId>io.micrometer</groupId>-->
-<!--			<artifactId>micrometer-registry-otlp</artifactId>-->
-<!--		</dependency>-->
-<!--		<dependency>-->
-<!--			<groupId>software.amazon.awssdk</groupId>-->
-<!--			<artifactId>metrics-spi</artifactId>-->
-<!--		</dependency>-->
-<!--		<dependency>-->
-<!--			<groupId>io.awspring.cloud</groupId>-->
-<!--			<artifactId>spring-cloud-aws-starter-observability</artifactId>-->
-<!--		</dependency>-->
 
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -249,26 +192,6 @@
 					</annotationProcessorPaths>
 				</configuration>
 			</plugin>
-<!--			<plugin>-->
-<!--				<groupId>org.springframework.boot</groupId>-->
-<!--				<artifactId>spring-boot-maven-plugin</artifactId>-->
-<!--				<configuration>-->
-<!--					<skip>true</skip>-->
-<!--					<excludes>-->
-<!--						<exclude>-->
-<!--							<groupId>org.projectlombok</groupId>-->
-<!--							<artifactId>lombok</artifactId>-->
-<!--						</exclude>-->
-<!--					</excludes>-->
-<!--				</configuration>-->
-<!--				<executions>-->
-<!--					<execution>-->
-<!--						<goals>-->
-<!--							<goal>repackage</goal>-->
-<!--						</goals>-->
-<!--					</execution>-->
-<!--				</executions>-->
-<!--			</plugin>-->
 			<plugin>
 				<groupId>org.jacoco</groupId>
 				<artifactId>jacoco-maven-plugin</artifactId>
@@ -336,7 +259,6 @@
 							<finalName>card-service-lambda</finalName>
 							<createDependencyReducedPom>false</createDependencyReducedPom>
 							<shadedArtifactAttached>false</shadedArtifactAttached>
-<!--							<shadedClassifierName></shadedClassifierName>-->
 							<artifactSet>
 								<excludes>
 									<exclude>org.apache.tomcat.embed:*</exclude>
@@ -359,9 +281,6 @@
 								</transformer>
 								<transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
 								<transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-									<!-- Note: When using aws-serverless-java-container, the mainClass is typically NOT needed
-                                         as Lambda calls your StreamLambdaHandler directly. -->
-<!--									<mainClass>org.springframework.boot.loader.JarLauncher</mainClass>-->
 								</transformer>
 							</transformers>
 						</configuration>

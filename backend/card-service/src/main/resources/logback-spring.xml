@@ -5,11 +5,6 @@
     <springProperty scope="local" name="appName" source="spring.application.name"/>
     <springProperty scope="local" name="activeProfile" source="spring.profiles.active"/>
 
-<!--    <appender name="OTEL_EXPORT" class="io.opentelemetry.instrumentation.logback.appender.v1_0.OpenTelemetryAppender">-->
-<!--        <captureExperimentalAttributes>true</captureExperimentalAttributes>-->
-<!--        <captureMdcAttributes>*</captureMdcAttributes>-->
-<!--    </appender>-->
-
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder class="net.logstash.logback.encoder.LogstashEncoder">
             <fieldNames>
@@ -40,19 +35,10 @@
             <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg traceId=%X{traceId} spanId=%X{spanId}%n</pattern>
         </encoder>
     </appender>
-
-<!--    <appender name="OTEL_CONSOLE" class="io.opentelemetry.instrumentation.logback.mdc.v1_0.OpenTelemetryAppender">-->
-<!--        <appender-ref ref="CONSOLE"/>-->
-<!--    </appender>-->
-
     <root level="INFO">
-<!--        <appender-ref ref="OTEL_EXPORT" />-->
         <appender-ref ref="CONSOLE" />
-<!--        <appender-ref ref="FILE" />-->
     </root>
     <logger name="com.portfolio.banking" level="DEBUG" additivity="false">
-<!--        <appender-ref ref="OTEL_EXPORT" />-->
         <appender-ref ref="CONSOLE" />
-<!--        <appender-ref ref="FILE" />-->
     </logger>
 </configuration>

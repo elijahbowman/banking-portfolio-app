@@ -31,8 +31,6 @@ import static org.junit.jupiter.api.Assertions.*;
         topics = {"transfer-events",  "rollback-events"},
         brokerProperties = {
                 "listeners=PLAINTEXT://localhost:9092"
-//                "port=9092",
-//                "auto.create.topics.enable=true"
         }
 )
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
@@ -51,9 +49,6 @@ class BankingServiceIntegrationTest {
 
     @Autowired
     private AccountRepository accountRepository;
-
-//    @Autowired
-//    private EmbeddedKafkaBroker embeddedKafkaBroker;
 
     @DynamicPropertySource
     static void configureProperties(DynamicPropertyRegistry registry) {
@@ -76,7 +71,6 @@ class BankingServiceIntegrationTest {
 
     @BeforeEach
     void setUp() {
-//        embeddedKafkaBroker.addTopicsIfNotExists("transfer-events", "rollback-events");
 
         Account fromAccount = new Account();
         fromAccount.setAccountId("account1");

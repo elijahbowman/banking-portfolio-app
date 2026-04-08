@@ -30,16 +30,8 @@ public class IssueVCNFunction {
 
     private final CardService cardService;
 
-//    private final OpenTelemetry openTelemetry;
-
-//    private final TelemetryFlusher flusher;
-
     @Autowired
     private MeterRegistry registry;
-
-//    public void testMetric() {
-//        registry.counter("test.lambda.metric").increment();
-//    }
 
     public void recordVcnIssuance(String status) {
         // Micrometer will export this to Prometheus as: vcn_issuance_total{status="success"}
@@ -166,10 +158,6 @@ public class IssueVCNFunction {
                         .setHeader("statusCode", HttpStatus.INTERNAL_SERVER_ERROR.value())
                         .setHeader("Content-Type", "application/json").build();
             }
-//            finally {
-////                flushTelemetry();
-//                flusher.flush();
-//            }
         };
     }
 
@@ -186,13 +174,4 @@ public class IssueVCNFunction {
                 .setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization")
                 .build();
     }
-
-//    private void flushTelemetry() {
-//        if (openTelemetry instanceof OpenTelemetrySdk sdk) {
-//            sdk.getSdkTracerProvider().forceFlush().join(10, TimeUnit.SECONDS);
-//            sdk.getSdkMeterProvider().forceFlush().join(10, TimeUnit.SECONDS);
-//            sdk.getSdkLoggerProvider().forceFlush().join(10, TimeUnit.SECONDS);
-//            log.info("Manual OTel flush complete.");
-//        }
-//    }
 }

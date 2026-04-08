@@ -66,49 +66,6 @@ management:
   observations:
     annotations:
       enabled: true
-#  otlp:
-#    logging:
-#      export:
-#        enabled: true
-#      endpoint: ${ALLOY_BASE_URL:http://host.docker.internal:4318}
-#    tracing:
-#      export:
-#        enabled: true
-#      endpoint: ${ALLOY_BASE_URL:http://host.docker.internal:4318}
-#    metrics:
-#      export:
-#        enabled: true
-#        url: ${ALLOY_BASE_URL:http://host.docker.internal:4318}
-#        step: 10s
-
-#otel:
-#  service:
-#    name: card-service
-#  exporter:
-#    otlp:
-#      endpoint: ${ALLOY_BASE_URL}
-#      protocol: http/protobuf
-#      timeout: 60000
-#
-#  # Configuration for the Batch Span Processor (Traces)
-#  bsp:
-#    schedule:
-#      delay: 10 # (in ms)
-#
-#  # Configuration for the Batch Log Record Processor (Logs)
-#  blrp:
-#    schedule:
-#      delay: 10 # (in ms)
-#
-#  metrics:
-#    exporter: otlp
-#  logs:
-#    exporter: otlp
-#  traces:
-#    exporter: otlp
-#
-##  propagators: "tracecontext,baggage,b3"
-#  propagators: "tracecontext,baggage"
 
 account:
   service:

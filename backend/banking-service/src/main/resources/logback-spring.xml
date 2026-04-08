@@ -19,7 +19,6 @@
             <includeMdcKeyName>traceId</includeMdcKeyName>
             <includeMdcKeyName>spanId</includeMdcKeyName>
 
-<!--            <includeMdc>false</includeMdc>-->
         </encoder>
     </appender>
     <appender name="FILE" class="ch.qos.logback.core.FileAppender">

@@ -9,8 +9,6 @@ Globals:
     Timeout: 90
     MemorySize: 2048
     Runtime: java17
-#    Tracing: Active
-#    Architectures: [x86_64]
     Architectures: [!Ref Architecture]
     Environment:
       Variables:
@@ -27,7 +25,6 @@ Parameters:
     Description: Operating System
   ShadedJarName:
     Type: String
-#    Default: card-service-0.0.1-SNAPSHOT-lambda.jar
     Default: card-service-lambda.jar
     Description: Name of the shaded JAR in target/
   DeploymentEnv:
@@ -113,94 +110,41 @@ Resources:
           - IsArm64
           - !Sub arn:aws:lambda:us-east-1:615299751070:layer:AWSOpenTelemetryDistroJava:9
           - !Sub arn:aws:lambda:us-east-1:615299751070:layer:AWSOpenTelemetryDistroJava:9
-#        - !If
-#          - IsArm64
-#          - !Sub arn:aws:lambda:us-east-1:184161586896:layer:opentelemetry-collector-arm64-0_19_0:1
-#          - !Sub arn:aws:lambda:us-east-1:184161586896:layer:opentelemetry-collector-amd64-0_19_0:1
       Environment:
         Variables:
           SPRING_CLOUD_FUNCTION_DEFINITION: lambdaRouter
           MAIN_CLASS: com.portfolio.banking.cardservice.CardServiceApplication
           ACCOUNT_SERVICE_URL: !Ref AccountServiceURL
-#          ACCOUNT_SERVICE_URL: !Sub '{{resolve:ssm-secure:/banking/backend/account-service/ACCOUNT_SERVICE_URL}}'
           ALLOY_BASE_URL: !Ref AlloyUrl
           AWS_LAMBDA_EXEC_WRAPPER: /opt/otel-instrument
           OTEL_SERVICE_NAME: "card-service-api"
           OTEL_PROPAGATORS: "tracecontext,baggage,b3,xray"
           OTEL_AWS_APPLICATION_SIGNALS_ENABLED: "false"
           OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
-##          OTEL_EXPORTER_OTLP_TIMEOUT: "1000"
           OTEL_EXPORTER_OTLP_ENDPOINT: !Ref AlloyUrl
-##          OTEL_EXPORTER_OTLP_ENDPOINT: "http://127.0.0.1:4318"
           OTEL_LOGS_EXPORTER: "otlp"
           OTEL_TRACES_EXPORTER: "otlp"
           OTEL_METRICS_EXPORTER: "otlp"
-#          OTEL_LOGS_EXPORTER: "console"
-#          OTEL_TRACES_EXPORTER: "console"
-#          OTEL_METRICS_EXPORTER: "console"
           OTEL_BSP_SCHEDULE_DELAY: "10"
           OTEL_BLRP_SCHEDULE_DELAY: "10"
           OTEL_JAVAAGENT_LOGGING: "application"
           OTEL_INSTRUMENTATION_LOGBACK_APPENDER_ENABLED: "true"
           OTEL_METRIC_EXPORT_INTERVAL: "5000"
-#          OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE: "CUMULATIVE"
           OTEL_TRACES_SAMPLER: "always_on"
-#          OTEL_INSTRUMENTATION_COMMON_DEFAULT_ENABLED: "true"
           OTEL_INSTRUMENTATION_JDBC_ENABLED: "true"
           OTEL_INSTRUMENTATION_JDBC_DATA_SOURCE_ENABLED: "true"
-#          OTEL_INSTRUMENTATION_HIKARI_ENABLED: "true"
-#          OTEL_INSTRUMENTATION_SPRING_DATA_ENABLED: "true"
           OTEL_JAVAAGENT_DEBUG: "true"
           OTEL_LOG_LEVEL: "debug"
           OTEL_INSTRUMENTATION_LOGGING_ENABLED: "true"
-#          OTEL_JAVAAGENT_EXPERIMENTAL_FIELD_INJECTION_ENABLED: "true"
-#          OTEL_JAVAAGENT_EXCLUDED_CLASSES: "com.amazonaws.services.lambda.runtime.*"
-#          OTEL_SKIP_RESOURCE_TELEMETRY_DEFINITION_CHECK: "true"
-#          OTEL_INSTRUMENTATION_SPRING_INTEGRATION_ENABLED: "true"
           OTEL_INSTRUMENTATION_SPRING_CLOUD_FUNCTION_ENABLED: "true"
-#          OTEL_INSTRUMENTATION_AWS_LAMBDA_ENABLED: "true"
           OTEL_INSTRUMENTATION_MICROMETER_ENABLED: "true"
-#          OTEL_INSTRUMENTATION_HIBERNATE_ENABLED: "true"
           OTEL_INSTRUMENTATION_AWS_SDK_ENABLED: "true"
-#          OTEL_INSTRUMENTATION_METHODS_ENABLED: "true"
           OTEL_INSTRUMENTATION_AWS_SDK_GENERATE_RPC_METRICS: "true"
           OTEL_INSTRUMENTATION_AWS_SDK_EXPERIMENTAL_SPAN_ATTRIBUTES: true
           OTEL_INSTRUMENTATION_OKHTTP_ENABLED: "true"
-#          OTEL_INSTRUMENTATION_JVM_METRICS_ENABLED: "true"
-#          OTEL_INSTRUMENTATION_PROCESS_METRICS_ENABLED: "true"
-#          OTEL_INSTRUMENTATION_PROCESS_RUNTIME_ENABLED: "true"
           OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: !Sub "${AlloyUrl}/v1/traces"
           OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: !Sub "${AlloyUrl}/v1/metrics"
           OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: !Sub "${AlloyUrl}/v1/logs"
-#          OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: !Sub "http://127.0.0.1:4318/v1/traces"
-#          OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: !Sub "http://127.0.0.1:4318/v1/metrics"
-#          OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: !Sub "http://127.0.0.1:4318/v1/logs"
-#          OPENTELEMETRY_COLLECTOR_CONFIG_URI: env:ADOT_CONFIG_CONTENT
-#          ADOT_CONFIG_CONTENT:
-#            Fn::Sub:
-#              - |
-#                receivers:
-#                  otlp:
-#                    protocols:
-#                      http:
-#                        endpoint: "0.0.0.0:4318"
-#                        tls:
-#                          insecure: true
-#                exporters:
-#                  otlphttp:
-#                    endpoint: "${AlloyUrl}"
-#                service:
-#                  pipelines:
-#                    traces:
-#                      receivers: [otlp]
-#                      exporters: [otlphttp]
-#                    metrics:
-#                      receivers: [otlp]
-#                      exporters: [otlphttp]
-#                    logs:
-#                      receivers: [otlp]
-#                      exporters: [otlphttp]
-#              - AlloyUrl: !Ref AlloyUrl
       Events:
         IssueVCN:
           Type: HttpApi
@@ -244,10 +188,6 @@ Resources:
           - IsArm64
           - !Sub arn:aws:lambda:us-east-1:615299751070:layer:AWSOpenTelemetryDistroJava:9
           - !Sub arn:aws:lambda:us-east-1:615299751070:layer:AWSOpenTelemetryDistroJava:9
-#        - !If
-#          - IsArm64
-#          - !Sub arn:aws:lambda:us-east-1:184161586896:layer:opentelemetry-collector-arm64-0_19_0:1
-#          - !Sub arn:aws:lambda:us-east-1:184161586896:layer:opentelemetry-collector-amd64-0_19_0:1
       Environment:
         Variables:
           SPRING_CLOUD_FUNCTION_DEFINITION: accountCreated
@@ -255,31 +195,18 @@ Resources:
           ALLOY_BASE_URL: !Ref AlloyUrl
           AWS_LAMBDA_EXEC_WRAPPER: /opt/otel-instrument
           OTEL_INSTRUMENTATION_METHODS_INCLUDE: "org.springframework.cloud.function.adapter.aws.FunctionInvoker[handleRequest]"
-#          OTEL_INSTRUMENTATION_MESSAGING_EXPERIMENTAL_RECEIVE_TELEMETRY_ENABLED: "true"
           OTEL_SERVICE_NAME: "card-service-account-created-listener-function"
           OTEL_INSTRUMENTATION_LOGBACK_APPENDER_ENABLED: "true"
           OTEL_PROPAGATORS: "tracecontext,baggage,b3,xray"
           OTEL_AWS_APPLICATION_SIGNALS_ENABLED: "false"
           OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
-###          OTEL_EXPORTER_OTLP_TIMEOUT: "30000"
-#          OTEL_EXPORTER_OTLP_ENDPOINT: !Ref AlloyUrl
-#          OTEL_EXPORTER_OTLP_ENDPOINT: "http://127.0.0.1:4318"
           OTEL_LOGS_EXPORTER: "otlp"
           OTEL_TRACES_EXPORTER: "otlp"
           OTEL_METRICS_EXPORTER: "otlp"
-#          OTEL_LOGS_EXPORTER: "logging"
-#          OTEL_TRACES_EXPORTER: "logging"
-#          OTEL_METRICS_EXPORTER: "logging"
           OTEL_BSP_MAX_EXPORT_BATCH_SIZE: "1"
           OTEL_BSP_SCHEDULE_DELAY: "10"
           OTEL_BLRP_SCHEDULE_DELAY: "10"
           OTEL_JAVAAGENT_LOGGING: "application"
-#          OTEL_INSTRUMENTATION_LOGBACK_APPENDER_ENABLED: "true"
-#          OTEL_TRACES_SAMPLER: "always_on"
-#          OTEL_INSTRUMENTATION_COMMON_DEFAULT_ENABLED: "true"
-##          OTEL_EXPORTER_OTLP_CONNECT_TIMEOUT: 10000
-##          OTEL_JAVAAGENT_ENABLED: true
-##          OTEL_INSTRUMENTATION_AWS_LAMBDA_FLUSH_TIMEOUT: 10000
           OTEL_METRIC_EXPORT_INTERVAL: "5000"
           OTEL_INSTRUMENTATION_JDBC_ENABLED: "true"
           OTEL_INSTRUMENTATION_JDBC_DATA_SOURCE_ENABLED: "true"
@@ -293,9 +220,6 @@ Resources:
           OTEL_INSTRUMENTATION_AWS_SDK_ENABLED: "true"
           OTEL_INSTRUMENTATION_AWS_SDK_GENERATE_RPC_METRICS: "true"
           OTEL_INSTRUMENTATION_AWS_SDK_EXPERIMENTAL_SPAN_ATTRIBUTES: true
-#          OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: !Sub "${AlloyUrl}/v1/traces"
-#          OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: !Sub "${AlloyUrl}/v1/metrics"
-#          OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: !Sub "${AlloyUrl}/v1/logs"
           OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: "http://127.0.0.1:55681/v1/traces"
           OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: "http://127.0.0.1:55681/v1/metrics"
           OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: "http://127.0.0.1:55681/v1/logs"
@@ -303,8 +227,6 @@ Resources:
           OPENTELEMETRY_COLLECTOR_THROTTLING_EXIT_TIMEOUT: "2000"
           OTEL_INSTRUMENTATION_AWS_LAMBDA_FLUSH_TIMEOUT: 5000
           OPENTELEMETRY_COLLECTOR_CONFIG_URI: env:ADOT_CONFIG_CONTENT
-#          ADOT_CONFIG_CONTENT:
-#            Fn::Sub:
           ADOT_CONFIG_CONTENT: !Sub
             - |
               receivers:
@@ -334,7 +256,6 @@ Resources:
           Type: SelfManagedKafka
           Properties:
             KafkaBootstrapServers:
-#              - !ImportValue banking-portfolio-core:KafkaBroker
               - !Ref KafkaBootstrapServers
             Topics:
               - !Ref KafkaTopic
@@ -347,34 +268,6 @@ Resources:
                 URI: !Ref KafkaSubnetId
               - Type: VPC_SECURITY_GROUP
                 URI: !Ref LambdaSecurityGroupId
-
-#  CardServiceApiFunctionVersion:
-#    Type: AWS::Lambda::Version
-#    Properties:
-#      FunctionName: !Ref CardServiceApiFunction
-#
-#  CardServiceApiFunctionSnapStartAlias:
-#    Type: AWS::Lambda::Alias
-#    Properties:
-#      FunctionName: !Ref CardServiceApiFunction
-#      FunctionVersion: !GetAtt CardServiceApiFunctionVersion.Version
-#      Name: "CardServiceApiFunctionSnapStartAlias"
-
-#  CardServiceApiInvokePermission:
-#    Type: AWS::Lambda::Permission
-#    Properties:
-#      Action: lambda:InvokeFunction
-#      FunctionName: !Ref CardServiceApiFunction.Alias
-#      Principal: apigateway.amazonaws.com
-##        SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:*/*/*/*"
-#      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${CardServiceApi}/*/*/*"
-
-#  CardServiceApiIntegration:
-#    Type: AWS::ApiGatewayV2::Integration
-#    Properties:
-#      ApiId: !Ref CardServiceApi
-#      IntegrationType: AWS_PROXY
-#      IntegrationUri: !Ref CardServiceApiFunction.Alias
 
   HttpApiLogGroup:
     Type: AWS::Logs::LogGroup
@@ -452,7 +345,6 @@ Resources:
                   - dynamodb:DeleteItem
                   - dynamodb:Query
                   - dynamodb:Scan
-#                Resource: !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/*!ImportValue banking-portfolio-core:DynamoDBTable*"
                 Resource:
                   - !GetAtt CardsTable.Arn
                   - !GetAtt VirtualCardTokensTable.Arn

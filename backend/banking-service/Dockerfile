@@ -1,5 +1,4 @@
 FROM maven:3.9.6-eclipse-temurin-17 AS build
-#FROM openjdk:17-jdk-slim AS build
 WORKDIR /app
 COPY pom.xml .
 COPY src ./src
@@ -26,7 +25,6 @@ ENV OTEL_TRACES_EXPORTER=otlp
 ENV OTEL_METRICS_EXPORTER=otlp
 ENV OTEL_LOGS_EXPORTER=otlp
 ENV OTEL_PROPAGATORS=tracecontext,baggage
-#ENV OTEL_LOGS_INCLUDE_MDC=true
 ENV OTEL_EXPORTER_OTLP_ENDPOINT=http://host.docker.internal:4318
 
 ENTRYPOINT ["java", "-javaagent:/app/opentelemetry-javaagent.jar", "-jar", "app.jar"]

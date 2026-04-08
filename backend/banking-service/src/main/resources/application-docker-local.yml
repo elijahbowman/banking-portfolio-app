@@ -39,10 +39,6 @@ logging:
   file:
     name: /app/logs/banking-service.log
 
-#my:
-#  value: ${/banking/rds/password:NOT_SET}
-#  value2: ${password:NOT_SET}
-
 banking:
   account-service-url: http://account-service:8081
   cors:
@@ -72,6 +68,3 @@ management:
   tracing:
     sampling:
       probability: 1.0
-#  zipkin:
-#    tracing:
-#      endpoint: http://zipkin:9411/api/v2/spans
