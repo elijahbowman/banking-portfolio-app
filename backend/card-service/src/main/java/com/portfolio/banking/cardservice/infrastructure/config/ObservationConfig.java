@@ -9,13 +9,6 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class ObservationConfig {
-//    @Bean
-//    public ObservationRegistry observationRegistry(MeterRegistry meterRegistry) {
-//        ObservationRegistry registry = ObservationRegistry.create();
-//        registry.observationConfig().observationHandler(new DefaultMeterObservationHandler(meterRegistry));
-//        return registry;
-//    }
-
     @Bean
     public ObservedAspect observedAspect(ObservationRegistry observationRegistry) {
         return new ObservedAspect(observationRegistry);

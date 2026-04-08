@@ -30,25 +30,4 @@ public class TestcontainersConfiguration {
 				.withPassword("testpass");
 	}
 
-//	@Bean
-//	public NewTopic myTopic() {
-//		return TopicBuilder.name("my-topic")
-//				.partitions(1)
-//				.replicas(1)
-//				.build();
-//	}
-
-//	@Bean
-//	public Collection<NewTopic> testTopics() {
-//		return List.of(
-//				TopicBuilder.name("transfer-events")
-//						.partitions(1)
-//						.replicas(1)
-//						.build(),
-//				TopicBuilder.name("rollback-events")
-//						.partitions(1)
-//						.replicas(1)
-//						.build()
-//		);
-//	}
 }

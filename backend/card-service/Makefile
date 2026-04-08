@@ -1,10 +1,3 @@
-# build-CardServiceFunction:
-# 	mvn clean package -DskipTests -Dspring.profiles.active=local
-#
-# 	cp target/*.jar $(ARTIFACTS_DIR)
-#
-# .PHONY: build-CardServiceFunction
-
 compile-project:
 	mvn clean package -U -DskipTests -Ddependency.check.skip=true
 

@@ -1,5 +1,5 @@
 import http from 'k6/http';
-import { check, sleep } from 'k6';
+import { check } from 'k6';
 import { SharedArray } from 'k6/data';
 const accounts = new SharedArray('accounts', function () {
     return ["load", "load2", "load3", "load4", "load5"];
@@ -26,7 +26,8 @@ export const options = {
     },
 };
 
-const BASE_URL = 'https://mccak9w5q6.execute-api.us-east-1.amazonaws.com/Prod';
+/** REPLACE WITH ACTUAL API GATEWAY HTTP API URL **/
+const BASE_URL = 'https://zxfccwjjn5.execute-api.us-east-1.amazonaws.com/Prod';
 
 export default function () {
     const accountId = accounts[Math.floor(Math.random() * accounts.length)];

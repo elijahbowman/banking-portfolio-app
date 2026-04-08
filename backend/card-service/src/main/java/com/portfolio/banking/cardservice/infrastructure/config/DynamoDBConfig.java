@@ -14,12 +14,6 @@ public class DynamoDBConfig {
     @Bean
     public DynamoDbClient dynamoDbClient(ObservationRegistry observationRegistry) {
         return DynamoDbClient.builder()
-//                .overrideConfiguration(builder -> builder
-//                        // This 'hook' allows Micrometer to see the DB calls
-//                        .addExecutionInterceptor(new software.amazon.awssdk.core.interceptor.ExecutionInterceptor() {
-//                            // Just having a custom interceptor often triggers the Agent's or Spring's internal bridge to finally 'wake up'.
-//                        })
-//                )
             .build();
     }
 

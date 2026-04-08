@@ -68,11 +68,6 @@ class BankingServiceUnitTest {
 
         balanceUrl = "http://account-service:8081/api/v1/accounts/balance?accountId=account1";
 
-//        // Set accountServiceUrl to empty to match the expected URL
-//        Field field = BankingService.class.getDeclaredField("accountServiceUrl");
-//        field.setAccessible(true);
-//        field.set(bankingService, "");
-
         // Set accountServiceUrl to empty
         try {
             Field urlField = BankingService.class.getDeclaredField("accountServiceUrl");

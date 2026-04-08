@@ -1,7 +1,6 @@
 spring:
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1}
-#    driver-class-name: ${SPRING_DATASOURCE_DRIVER_CLASS_NAME:org.h2.Driver}
     username: ${SPRING_DATASOURCE_USERNAME:sa}
     password: ${SPRING_DATASOURCE_PASSWORD:}
   jpa:
@@ -13,7 +12,6 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
   kafka:
     bootstrap-servers: ${spring.embedded.kafka.brokers:localhost:9092}
-#    bootstrap-servers: ${kafka.bootstrapAddress:localhost:9092}
 
 logging:
   level:

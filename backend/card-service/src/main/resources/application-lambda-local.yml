@@ -30,15 +30,6 @@ spring.cloud.aws:
   region:
     static: us-east-1
 
-#management:
-#  endpoints:
-#    web:
-#      exposure:
-#        include: health
-#  endpoint:
-#    health:
-#      enabled: true
-
 management:
   endpoints:
     web:
@@ -50,7 +41,6 @@ management:
   prometheus:
     metrics:
       export:
-#        enabled: true
         enabled: false
   metrics:
     tags:
@@ -65,9 +55,7 @@ management:
       slo:
         http.client.requests: 50ms,100ms,200ms,500ms,1s,5s
     enable:
-#      spring.cloud.function: true
       all: true
-#      aws.sdk: true
   tracing:
     enabled: false
     sampling:
@@ -75,74 +63,7 @@ management:
   observations:
     annotations:
       enabled: true
-#  otlp:
-#    logging:
-#      export:
-#        enabled: true
-#      endpoint: ${ALLOY_BASE_URL:http://host.docker.internal:4318}
-#    tracing:
-#      export:
-#        enabled: true
-#      endpoint: ${ALLOY_BASE_URL:http://host.docker.internal:4318}
-#    metrics:
-#      export:
-#        enabled: true
-#        url: ${ALLOY_BASE_URL:http://host.docker.internal:4318}
-#        step: 10s
-#otel:
-#  service:
-#    name: card-service
-#  exporter:
-#    otlp:
-#      endpoint: ${ALLOY_BASE_URL:http://host.docker.internal:4318}
-#      protocol: http/protobuf
-#      timeout: 2000
-#
-#  # Configuration for the Batch Span Processor (Traces)
-#  bsp:
-#    schedule:
-#      delay: 1 # (in ms)
-#
-#  # Configuration for the Batch Log Record Processor (Logs)
-#  blrp:
-#    schedule:
-#      delay: 1 # (in ms)
-#
-#  metrics:
-#    exporter: otlp
-#  logs:
-#    exporter: otlp
-#  traces:
-#    exporter: otlp
-#
-##  propagators: "tracecontext,baggage,b3"
-#  propagators: "tracecontext,baggage"
 
 account:
   service:
     url: http://${ACCOUNT_SERVICE_URL:host.docker.internal:8081}
-
-
-#logging:
-#  level:
-#    #    org.springframework.boot.context.config.ConfigDataEnvironment: TRACE
-#    com.portfolio.banking: INFO
-#    org.springframework.kafka: INFO
-#    org.apache.kafka: INFO
-#    org.springframework.jdbc.datasource: INFO
-#    #    io.awspring.cloud.paramstore: DEBUG
-#    logging:
-#      level:
-#        org:
-#          hibernate:
-#            type:
-#              descriptor:
-#                sql: INFO
-#    feign: DEBUG
-
-#  file:
-#    name: /app/logs/card-service.log
-#logging:
-#  level:
-#    org.springframework.beans.factory: DEBUG
-

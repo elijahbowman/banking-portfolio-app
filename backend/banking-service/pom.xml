@@ -88,17 +88,6 @@
 			<artifactId>spring-cloud-starter-aws-parameter-store-config</artifactId>
 			<version>2.4.2</version>
 		</dependency>
-<!--		<dependency>-->
-<!--			<groupId>org.springframework.cloud</groupId>-->
-<!--			<artifactId>spring-cloud-starter-aws-parameter-store-config</artifactId>-->
-<!--			<version>2.2.6.RELEASE</version>-->
-<!--		</dependency>-->
-<!--		<dependency>-->
-<!--			<groupId>io.awspring.cloud</groupId>-->
-<!--			<artifactId>spring-cloud-aws-starter-parameter-store</artifactId>-->
-<!--			<version>3.4.0</version>-->
-<!--		</dependency>-->
-
 
 		<!-- To fix OWasp vulnerability	-->
 		<dependency>
@@ -164,20 +153,6 @@
 			<artifactId>micrometer-observation</artifactId>
 		</dependency>
 
-<!--		<dependency>-->
-<!--			<groupId>io.micrometer</groupId>-->
-<!--			<artifactId>micrometer-tracing-bridge-brave</artifactId>-->
-<!--		</dependency>-->
-<!--		<dependency>-->
-<!--			<groupId>io.zipkin.reporter2</groupId>-->
-<!--			<artifactId>zipkin-reporter-brave</artifactId>-->
-<!--		</dependency>-->
-
-<!--		<dependency>-->
-<!--			<groupId>io.micrometer</groupId>-->
-<!--			<artifactId>micrometer-tracing</artifactId>-->
-<!--		</dependency>-->
-
 		<dependency>
 			<groupId>net.logstash.logback</groupId>
 			<artifactId>logstash-logback-encoder</artifactId>
@@ -188,18 +163,6 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-logging</artifactId>
 		</dependency>
-
-<!--		<dependency>-->
-<!--			<groupId>io.micrometer</groupId>-->
-<!--			<artifactId>micrometer-tracing-bridge-otel</artifactId>-->
-<!--		</dependency>-->
-<!--		<dependency>-->
-<!--			<groupId>io.opentelemetry</groupId>-->
-<!--			<artifactId>opentelemetry-exporter-zipkin</artifactId>-->
-<!--		</dependency>-->
-
-
-
 	</dependencies>
 
 	<build>
@@ -261,8 +224,6 @@
 						<format>sarif</format>
 					</formats>
 					<autoUpdate>${odc.autoUpdate}</autoUpdate>
-<!--					<outputDirectory>${project.reporting.outputDirectory}/dependency-check-report</outputDirectory>-->
-<!--					<dataDirectory>${user.home}/.m2/repository/org/owasp/dependency-check-data</dataDirectory>-->
 					<skip>${dependency.check.skip}</skip>
 				</configuration>
 				<executions>

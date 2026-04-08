@@ -71,67 +71,11 @@
 			<scope>test</scope>
 		</dependency>
 
-<!--		<dependency>-->
-<!--			<groupId>org.springframework.boot</groupId>-->
-<!--			<artifactId>spring-boot-testcontainers</artifactId>-->
-<!--			<scope>test</scope>-->
-<!--			<exclusions>-->
-<!--				<exclusion>-->
-<!--					<groupId>org.apache.commons</groupId>-->
-<!--					<artifactId>commons-compress</artifactId>-->
-<!--				</exclusion>-->
-<!--			</exclusions>-->
-<!--		</dependency>-->
-<!--		<dependency>-->
-<!--			<groupId>org.apache.commons</groupId>-->
-<!--			<artifactId>commons-compress</artifactId>-->
-<!--			<version>1.28.0</version>-->
-<!--			<exclusions>-->
-<!--				<exclusion>-->
-<!--					<groupId>org.apache.commons</groupId>-->
-<!--					<artifactId>commons-lang3</artifactId>-->
-<!--				</exclusion>-->
-<!--			</exclusions>-->
-<!--		</dependency>-->
-<!--		<dependency>-->
-<!--			<groupId>org.apache.commons</groupId>-->
-<!--			<artifactId>commons-lang3</artifactId>-->
-<!--			<version>3.18.0</version>-->
-<!--		</dependency>-->
-
 		<dependency>
 			<groupId>org.springframework.kafka</groupId>
 			<artifactId>spring-kafka-test</artifactId>
 			<scope>test</scope>
 		</dependency>
-
-<!--		<dependency>-->
-<!--			<groupId>org.springframework.kafka</groupId>-->
-<!--			<artifactId>spring-kafka-test</artifactId>-->
-<!--			<scope>test</scope>-->
-<!--			<exclusions>-->
-<!--				<exclusion>-->
-<!--					<groupId>commons-beanutils</groupId>-->
-<!--					<artifactId>commons-beanutils</artifactId>-->
-<!--				</exclusion>-->
-<!--				<exclusion>-->
-<!--					<groupId>commons-io</groupId>-->
-<!--					<artifactId>commons-io</artifactId>-->
-<!--				</exclusion>-->
-<!--			</exclusions>-->
-<!--		</dependency>-->
-<!--		-->
-<!--		<dependency>-->
-<!--			<groupId>commons-beanutils</groupId>-->
-<!--			<artifactId>commons-beanutils</artifactId>-->
-<!--			<version>1.11.0</version>-->
-<!--		</dependency>-->
-<!--		<dependency>-->
-<!--			<groupId>commons-io</groupId>-->
-<!--			<artifactId>commons-io</artifactId>-->
-<!--			<version>2.17.0</version>-->
-<!--			<scope>test</scope>-->
-<!--		</dependency>-->
 
 		<dependency>
 			<groupId>org.testcontainers</groupId>
@@ -177,12 +121,6 @@
 			<scope>runtime</scope>
 		</dependency>
 
-<!--		<dependency>-->
-<!--			<groupId>org.springframework.boot</groupId>-->
-<!--			<artifactId>spring-boot-starter-webflux</artifactId>-->
-<!--			<scope>test</scope>-->
-<!--		</dependency>-->
-
 		<dependency>
 			<groupId>io.micrometer</groupId>
 			<artifactId>micrometer-registry-prometheus</artifactId>
@@ -191,15 +129,6 @@
 			<groupId>io.micrometer</groupId>
 			<artifactId>micrometer-observation</artifactId>
 		</dependency>
-
-<!--		<dependency>-->
-<!--			<groupId>io.micrometer</groupId>-->
-<!--			<artifactId>micrometer-tracing-bridge-brave</artifactId>-->
-<!--		</dependency>-->
-<!--		<dependency>-->
-<!--			<groupId>io.zipkin.reporter2</groupId>-->
-<!--			<artifactId>zipkin-reporter-brave</artifactId>-->
-<!--		</dependency>-->
 
 		<dependency>
 			<groupId>net.logstash.logback</groupId>
@@ -211,20 +140,6 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-logging</artifactId>
 		</dependency>
-
-<!--		<dependency>-->
-<!--			<groupId>io.micrometer</groupId>-->
-<!--			<artifactId>micrometer-tracing</artifactId>-->
-<!--		</dependency>-->
-
-<!--		<dependency>-->
-<!--			<groupId>io.micrometer</groupId>-->
-<!--			<artifactId>micrometer-tracing-bridge-otel</artifactId>-->
-<!--		</dependency>-->
-<!--		<dependency>-->
-<!--			<groupId>io.opentelemetry</groupId>-->
-<!--			<artifactId>opentelemetry-exporter-zipkin</artifactId>-->
-<!--		</dependency>-->
 
 		<dependency>
 			<groupId>ch.qos.logback</groupId>
@@ -291,8 +206,6 @@
 						<format>sarif</format>
 					</formats>
 					<autoUpdate>${odc.autoUpdate}</autoUpdate>
-					<!--					<outputDirectory>${project.reporting.outputDirectory}/dependency-check-report</outputDirectory>-->
-					<!--					<dataDirectory>${user.home}/.m2/repository/org/owasp/dependency-check-data</dataDirectory>-->
 					<skip>${dependency.check.skip}</skip>
 				</configuration>
 				<executions>
