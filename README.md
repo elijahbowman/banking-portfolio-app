@@ -13,6 +13,8 @@ A full-stack, event-driven banking system built on AWS, demonstrating modern clo
 - **Card Service**: Serverless AWS Lambda with Spring Cloud Function, HttpApi, and DynamoDB
 - **Event Bus**: Private Kafka cluster on EC2
 - **Observability**: Prometheus, Grafana, Loki, Alloy, Zipkin
+- **Unit and Integration Testing**: JUnit, Mockito, Testcontainers, Vitest, MSW
+- **Code Quality & Security**: SonarQube, OWasp
 
 **Key Highlights**:
 - Event-driven card creation via Kafka
