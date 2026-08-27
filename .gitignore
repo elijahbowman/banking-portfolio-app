@@ -16,3 +16,5 @@ data
 update-banking-service.sh
 delete-stacks.sh
 temp.json
+
+ignored
